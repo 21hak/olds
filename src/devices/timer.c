@@ -7,6 +7,8 @@
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+#include <list.h>
+
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -19,6 +21,9 @@
 
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
+
+/* for project 1 */
+static struct list sleeping_list;
 
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
@@ -37,6 +42,8 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+  list_init (&sleeping_list);
+
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -90,10 +97,21 @@ void
 timer_sleep (int64_t ticks) 
 {
   int64_t start = timer_ticks ();
+  struct thread *cur = thread_current ();
+  enum intr_level old_level;
+  old_level = intr_disable ();
+  // if (cur->name != "idle"){
+  cur->alarm_time = start + ticks;
+  list_insert_ordered(&sleeping_list, &cur->elem, thread_less_func, 0);
+  thread_block();
+  // } 
+  // list_push_back(&sleeping_list, &cur->elem);
+  intr_set_level (old_level);
 
-  ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+  // ASSERT (intr_get_level () == INTR_ON);
+  // while (timer_elapsed (start) < ticks) 
+  //   thread_yield ();
+
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -167,11 +185,35 @@ timer_print_stats (void)
 }
 
 /* Timer interrupt handler. */
+
+/* for project 1*/
+bool thread_less_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED) {
+
+  return list_entry(a,struct thread,elem)->alarm_time <
+
+         list_entry(b,struct thread,elem)->alarm_time;
+
+}
+
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+  while(1){
+    if(!list_empty (&sleeping_list)){
+      struct thread *head = list_entry(list_front(&sleeping_list), struct thread,elem);
+      if(head->alarm_time <= ticks){
+        list_pop_front(&sleeping_list);
+        thread_unblock(head);
+      }else {
+        break;
+      }
+    }else {
+      break; 
+    }
+    
+  }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

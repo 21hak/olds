@@ -92,6 +92,8 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+    /* for project 1 */
+    int64_t alarm_time;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

@@ -28,6 +28,7 @@ static struct list ready_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -185,7 +186,7 @@ thread_create (const char *name, int priority,
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
-  kf->eip = NULL;
+kf->eip = NULL;
   kf->function = function;
   kf->aux = aux;
 
