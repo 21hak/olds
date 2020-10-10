@@ -23,6 +23,7 @@
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
+struct list *pready_list = &ready_list;
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
@@ -200,11 +201,13 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
   /* Add to run queue. */
   thread_unblock (t);
-  // if(!list_empty(&ready_list)){
-  //   if(thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority){
-  //     thread_yield(); 
-  //   }
-  // }
+  if(!list_empty(&ready_list)){
+    if(thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority){
+      printf("create : %s\n", thread_current()->name);
+
+      thread_yield(); 
+    }
+  }
   // printf("%s\n", t->name);
 
   return tid;
@@ -247,11 +250,11 @@ thread_unblock (struct thread *t)
   list_insert_ordered(&ready_list, &t->elem, priority_greater_func, 0);
 
   t->status = THREAD_READY;
-  if(!list_empty(&ready_list) && (strcmp(t->name, "main")!=0)){
-    if(thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority){
-      thread_yield(); 
-    }
-  }
+  // if(!list_empty(&ready_list) && (strcmp(t->name, "main")!=0)){
+  //   if(thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority){
+  //     thread_yield(); 
+  //   }
+  // }
   intr_set_level (old_level);
   
   
@@ -609,6 +612,17 @@ bool priority_greater_func(struct list_elem *a, struct list_elem *b, void *aux U
 
 }
 
+struct list* get_ready_list(void){
+  return pready_list;
+}
+
+void change_current_thread(void){
+  if(!list_empty(&ready_list)&& strcmp(thread_current()->name, "idle")!=0){
+    if(thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority){
+      thread_yield(); 
+    }
+  }
+}
 
 
 /* Offset of `stack' member within `struct thread'.

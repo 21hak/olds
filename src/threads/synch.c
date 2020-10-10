@@ -32,6 +32,9 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+// extern struct list* get_ready_list(void);
+extern struct list* pready_list;
+
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -110,6 +113,7 @@ void
 sema_up (struct semaphore *sema) 
 {
   enum intr_level old_level;
+  // struct list* ready_list = get_ready_list();
 
   ASSERT (sema != NULL);
 
@@ -119,17 +123,18 @@ sema_up (struct semaphore *sema)
   if (!list_empty (&sema->waiters)){
     t = list_entry (list_pop_front (&sema->waiters), struct thread, elem);
     thread_unblock (t);
-
-    // if(!list_empty(&ready_list)){
-    //   if(thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority){
-    //     thread_yield(); 
-    //     }
-    //   }  
-    }    
-  
-
+    // change_current_thread();
+    if(!list_empty(pready_list)&&strcmp(thread_current()->name, "idle")!=0){
+    //   // list_entry(list_front(&ready_list), struct thread, elem)->priority
+      if(thread_current()->priority < list_entry(list_front(pready_list), struct thread, elem)->priority){
+        thread_yield(); 
+      }
+    }  
+  // }    
+  }
   sema->value++;
   intr_set_level (old_level);
+  
 }
 
 static void sema_test_helper (void *sema_);

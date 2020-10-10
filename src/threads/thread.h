@@ -125,7 +125,7 @@ struct thread *thread_current (void);
 tid_t thread_tid (void);
 const char *thread_name (void);
 
-void thread_exit (void) NO_RETURN;
+void thread_exit (void) NO_RETURN; 
 void thread_yield (void);
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
@@ -140,5 +140,7 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 bool priority_greater_func(struct list_elem *a, struct list_elem *b, void *aux);
+struct list* get_ready_list(void);
+void change_current_thread(void);
 
 #endif /* threads/thread.h */
