@@ -354,8 +354,8 @@ void
 thread_set_priority (int new_priority) 
 {
   struct thread* cur = thread_current();
-  cur->priority = new_priority;
-  
+  cur->original_priority = new_priority;
+
   if(cur->waiting_lock){
     struct thread* next = cur->waiting_lock->holder;
     while(next){
@@ -513,7 +513,6 @@ init_thread (struct thread *t, const char *name, int priority)
   //
   t->original_priority = priority;
   list_init(&t->donor_thread_list);
-  list_init(&t->waiting_lock);
   //
   t->magic = THREAD_MAGIC;
 
@@ -662,8 +661,8 @@ struct list* get_ready_list(void){
 void donate_priority(struct thread* donor, struct thread* donee){
   donee->priority = donor->priority;
   if(donee->waiting_lock){
-    if(donee->waiting_lock->holder->priority < donor->priority){
-      donate_priority(donor, donee->waiting_lock->holder);
+    if(donee->waiting_lock->holder->priority < donee->priority){
+      donate_priority(donee, donee->waiting_lock->holder);
     }  
   }
 }

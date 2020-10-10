@@ -217,8 +217,8 @@ lock_acquire (struct lock *lock)
     cur->waiting_lock = lock;
     if(lock->holder->priority < cur->priority){
       donate_priority(cur, lock->holder);
-      list_push_back(&lock->holder->donor_thread_list, &cur->donorelem);    
-      // list_insert_ordered(&lock->holder->donor_thread_list, &cur->elem, priority_greater_func, 0);
+      // list_push_back(&lock->holder->donor_thread_list, &cur->donorelem);    
+      list_insert_ordered(&lock->holder->donor_thread_list, &cur->donorelem, donor_greater_func, 0);
     }  
   }
 
