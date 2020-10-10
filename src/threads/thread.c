@@ -353,9 +353,34 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  struct thread* cur = thread_current();
+  cur->priority = new_priority;
+  
+  if(cur->waiting_lock){
+    struct thread* next = cur->waiting_lock->holder;
+    while(next){
+      list_remove(&cur->donorelem);
+      if(cur->priority > next->original_priority){
+        list_insert_ordered(&next->donor_thread_list, &cur->donorelem, donor_greater_func, 0);
+      }
+      if(!list_empty(&next->donor_thread_list)){
+        next->priority = list_entry(list_front(&next->donor_thread_list), struct thread, donorelem)->priority;
+      }else{
+        next->priority = next->original_priority;
+      }
+      // list_sort(&next->donor_thread_list, priority_greater_func, 0);
+      // next->priority = list_entry(list_front(&next->donor_thread_list), struct thread, elem)->priority;
+      if(next->waiting_lock){  
+        next = next->waiting_lock->holder;
+      }else{
+        next = NULL;
+      }
+    }  
+  }
+  
+  
   if(!list_empty(&ready_list)){
-    if(thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority){
+    if(cur->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority){
       thread_yield(); 
     }
   }
@@ -485,6 +510,11 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  //
+  t->original_priority = priority;
+  list_init(&t->donor_thread_list);
+  list_init(&t->waiting_lock);
+  //
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable ();
@@ -610,17 +640,37 @@ bool priority_greater_func(struct list_elem *a, struct list_elem *b, void *aux U
 
 }
 
+bool donor_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED) {
+
+  return list_entry(a,struct thread,donorelem)->priority >
+
+         list_entry(b,struct thread,donorelem)->priority;
+
+}
 struct list* get_ready_list(void){
   return pready_list;
 }
 
-void change_current_thread(void){
-  if(!list_empty(&ready_list)&& strcmp(thread_current()->name, "idle")!=0){
-    if(thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority){
-      thread_yield(); 
-    }
+// void change_current_thread(void){
+//   if(!list_empty(&ready_list)&& strcmp(thread_current()->name, "idle")!=0){
+//     if(thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority){
+//       thread_yield(); 
+//     }
+//   }
+// }
+
+void donate_priority(struct thread* donor, struct thread* donee){
+  donee->priority = donor->priority;
+  if(donee->waiting_lock){
+    if(donee->waiting_lock->holder->priority < donor->priority){
+      donate_priority(donor, donee->waiting_lock->holder);
+    }  
   }
 }
+
+// bool lock_priority_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED) {
+//   return list_entry(a, struct thread, elem)->priority > list_entry(b, struct thread, elem)->priority;
+// }
 
 
 /* Offset of `stack' member within `struct thread'.

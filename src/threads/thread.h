@@ -94,6 +94,11 @@ struct thread
     struct list_elem elem;              /* List element. */
     /* for project 1 */
     int64_t alarm_time;
+    /*for priority donation*/
+    int original_priority;
+    struct list donor_thread_list;
+    struct list_elem donorelem;
+    struct lock* waiting_lock;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -139,8 +144,14 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+
+
 bool priority_greater_func(struct list_elem *a, struct list_elem *b, void *aux);
+bool donor_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED);
 struct list* get_ready_list(void);
-void change_current_thread(void);
+// void change_current_thread(void);
+void donate_priority(struct thread* donor, struct thread* donee);
+// bool lock_priority_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED);
 
 #endif /* threads/thread.h */
