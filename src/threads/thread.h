@@ -95,6 +95,7 @@ struct thread
     /* for project 1 */
     int64_t alarm_time;
     /*for priority donation*/
+    struct list_elem semaelem;
     int original_priority;
     struct list donor_thread_list;
     struct list_elem donorelem;
@@ -148,6 +149,7 @@ int thread_get_load_avg (void);
 
 
 bool priority_greater_func(struct list_elem *a, struct list_elem *b, void *aux);
+bool sema_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED); 
 bool donor_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED);
 struct list* get_ready_list(void);
 // void change_current_thread(void);

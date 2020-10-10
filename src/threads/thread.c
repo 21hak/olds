@@ -175,7 +175,6 @@ thread_create (const char *name, int priority,
   tid_t tid;
 
   ASSERT (function != NULL);
-
   /* Allocate thread. */
   t = palloc_get_page (PAL_ZERO);
   if (t == NULL)
@@ -353,16 +352,29 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
+  // enum intr_level old_level;
+  // old_level = intr_disable ();
+
+
   struct thread* cur = thread_current();
   cur->original_priority = new_priority;
-
+  if(list_empty(&cur->donor_thread_list)){
+    cur->priority = cur->original_priority;
+  }else{
+    if(cur->original_priority < list_entry(list_front(&cur->donor_thread_list), struct thread, donorelem)->priority){
+      cur->priority=list_entry(list_front(&cur->donor_thread_list), struct thread, donorelem)->priority;
+    }else{
+      cur->priority = cur->original_priority;
+    }  
+  }
+  
   if(cur->waiting_lock){
     struct thread* next = cur->waiting_lock->holder;
     while(next){
       list_remove(&cur->donorelem);
-      if(cur->priority > next->original_priority){
-        list_insert_ordered(&next->donor_thread_list, &cur->donorelem, donor_greater_func, 0);
-      }
+      // if(cur->priority > next->original_priority){
+      list_insert_ordered(&next->donor_thread_list, &cur->donorelem, donor_greater_func, 0);
+      // }
       if(!list_empty(&next->donor_thread_list)){
         next->priority = list_entry(list_front(&next->donor_thread_list), struct thread, donorelem)->priority;
       }else{
@@ -384,6 +396,8 @@ thread_set_priority (int new_priority)
       thread_yield(); 
     }
   }
+  // intr_set_level (old_level);
+
 }
 
 /* Returns the current thread's priority. */
@@ -636,6 +650,14 @@ bool priority_greater_func(struct list_elem *a, struct list_elem *b, void *aux U
   return list_entry(a,struct thread,elem)->priority >
 
          list_entry(b,struct thread,elem)->priority;
+
+}
+
+bool sema_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED) {
+
+  return list_entry(a,struct thread,semaelem)->priority >
+
+         list_entry(b,struct thread,semaelem)->priority;
 
 }
 
