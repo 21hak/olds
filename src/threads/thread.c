@@ -654,12 +654,13 @@ bool priority_greater_func(struct list_elem *a, struct list_elem *b, void *aux U
 }
 
 bool sema_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED) {
-
   return list_entry(a,struct thread,semaelem)->priority >
 
          list_entry(b,struct thread,semaelem)->priority;
 
 }
+
+
 
 bool donor_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED) {
 
