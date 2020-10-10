@@ -198,14 +198,14 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
-
   /* Add to run queue. */
   thread_unblock (t);
-  if(!list_empty(&ready_list)){
-    if(thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority){
-      thread_yield(); 
-    }
-  }
+  // if(!list_empty(&ready_list)){
+  //   if(thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority){
+  //     thread_yield(); 
+  //   }
+  // }
+  // printf("%s\n", t->name);
 
   return tid;
 }
@@ -247,7 +247,14 @@ thread_unblock (struct thread *t)
   list_insert_ordered(&ready_list, &t->elem, priority_greater_func, 0);
 
   t->status = THREAD_READY;
+  if(!list_empty(&ready_list) && (strcmp(t->name, "main")!=0)){
+    if(thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority){
+      thread_yield(); 
+    }
+  }
   intr_set_level (old_level);
+  
+  
 }
 
 /* Returns the name of the running thread. */
@@ -601,6 +608,7 @@ bool priority_greater_func(struct list_elem *a, struct list_elem *b, void *aux U
          list_entry(b,struct thread,elem)->priority;
 
 }
+
 
 
 /* Offset of `stack' member within `struct thread'.
