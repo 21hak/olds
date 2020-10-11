@@ -101,6 +101,8 @@ struct thread
     struct list donor_thread_list;
     struct list_elem donorelem;
     struct lock* waiting_lock;
+    int nice;
+    int recent_cpu;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -114,6 +116,7 @@ struct thread
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
+
 extern bool thread_mlfqs;
 
 void thread_init (void);
@@ -157,5 +160,6 @@ struct list* get_ready_list(void);
 // void change_current_thread(void);
 void donate_priority(struct thread* donor, struct thread* donee);
 // bool lock_priority_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED);
-
+void set_mlfqs_recent_cpu(struct thread *t);
+void set_mlfqs_priority(struct thread *t);
 #endif /* threads/thread.h */

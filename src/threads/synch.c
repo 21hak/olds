@@ -32,7 +32,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
-// extern struct list* get_ready_list(void);
+extern bool thread_mlfqs;
 extern struct list* pready_list;
 
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
@@ -214,16 +214,17 @@ lock_acquire (struct lock *lock)
 
   struct thread* cur = thread_current();
 
-  if(lock->holder){
-    cur->waiting_lock = lock;
-    if(lock->holder->priority < cur->priority){
-      donate_priority(cur, lock->holder);
-      // list_push_back(&lock->holder->donor_thread_list, &cur->donorelem);    
-    }
-    list_insert_ordered(&lock->holder->donor_thread_list, &cur->donorelem, donor_greater_func, 0);
-  
+  if(!thread_mlfqs){
+    if(lock->holder){
+      cur->waiting_lock = lock;
+      if(lock->holder->priority < cur->priority){
+        donate_priority(cur, lock->holder);
+        // list_push_back(&lock->holder->donor_thread_list, &cur->donorelem);    
+      }
+      list_insert_ordered(&lock->holder->donor_thread_list, &cur->donorelem, donor_greater_func, 0);
+    }  
   }
-
+  
   sema_down (&lock->semaphore);
   // old_level = intr_disable ();
   lock->holder = thread_current();
@@ -265,33 +266,24 @@ lock_release (struct lock *lock)
   int next_priority;
   struct list_elem *e;
 
-  for (e=list_begin (&cur->donor_thread_list); e != list_end (&cur->donor_thread_list); e = list_next (e)){
-    if(list_entry(e, struct thread, donorelem)->waiting_lock == lock){
-      // printf("called1\n");
-      list_remove(e);
+  if(!thread_mlfqs){
+    for (e=list_begin (&cur->donor_thread_list); e != list_end (&cur->donor_thread_list); e = list_next (e)){
+      if(list_entry(e, struct thread, donorelem)->waiting_lock == lock){
+        list_remove(e);
+      }
     }
-  }
-  // if(e!=list_end (&cur->donor_thread_list)){
-    // printf("called2\n");
-    // list_remove(e);
-  // }
 
-  if(!list_empty(&cur->donor_thread_list)){
-    if(cur->original_priority <list_entry(list_front(&cur->donor_thread_list), struct thread, donorelem)->priority){
-      // printf("called3\n");
-      cur->priority = list_entry(list_front(&cur->donor_thread_list), struct thread, donorelem)->priority;  
+
+    if(!list_empty(&cur->donor_thread_list)){
+      if(cur->original_priority <list_entry(list_front(&cur->donor_thread_list), struct thread, donorelem)->priority){
+        cur->priority = list_entry(list_front(&cur->donor_thread_list), struct thread, donorelem)->priority;  
+      }else{
+        cur->priority = cur->original_priority;  
+      }
     }else{
-      // printf("called4\n");
-      cur->priority = cur->original_priority;  
-    }
-      
-  }else{
-    // printf("called5\n");
-    // printf("original %d\n", cur->original_priority);
-    cur->priority = cur->original_priority;
+      cur->priority = cur->original_priority;
+    }  
   }
-  
-  // printf("%d\n", cur->priority);
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);
