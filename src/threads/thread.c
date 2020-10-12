@@ -512,10 +512,10 @@ void set_mlfqs_load_avg(void)
   //   cnt+=list_size(&list_entry(e, struct mlfqs_priority_list, elem )->priority_list);
   // }
 
-  int first = mult_both(div_f_i(int_to_f(59),60), load_avg); 
+  int first = mult_both(div_f_i(int_to_f(59),60), load_avg);
+  // ASSERT(first!=0); 
   int second = mult_f_i(div_f_i(int_to_f(1),60), cnt);
   load_avg = add_both_f(first, second);
-  ASSERT (load_avg!=0);
 
   intr_set_level (old_level);
 
