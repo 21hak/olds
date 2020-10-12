@@ -8,18 +8,18 @@
 
 extern inline int int_to_f(int n){
 	return n * FORMAT;
-} // int to float point
+} 
 
 extern inline int f_to_int_floor(int x){
 	return x / FORMAT;
-} // float point to int rounding toward zero
+} 
 
 extern inline int f_to_int_round(int x){
 	if(x >= 0)
       return (((x) + (FORMAT / 2)) / FORMAT );
    	else
       return (((x) - (FORMAT / 2)) / FORMAT );
-} // float point to int rounding nearest
+} 
 
 extern inline int add_both_f(int x, int y){
 	return x + y;

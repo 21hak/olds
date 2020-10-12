@@ -214,7 +214,6 @@ thread_create (const char *name, int priority,
       thread_yield(); 
     }
   }
-  // printf("%s\n", t->name);
 
   return tid;
 }
@@ -252,15 +251,9 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  // list_push_back (&ready_list, &t->elem);
   list_insert_ordered(&ready_list, &t->elem, priority_greater_func, 0);
 
   t->status = THREAD_READY;
-  // if(!list_empty(&ready_list) && (strcmp(t->name, "main")!=0)){
-  //   if(thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority){
-  //     thread_yield(); 
-  //   }
-  // }
   intr_set_level (old_level);
   
   
@@ -332,7 +325,6 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    // list_push_back (&ready_list, &cur->elem);
     list_insert_ordered(&ready_list, &cur->elem, priority_greater_func, 0);
 
   cur->status = THREAD_READY;
@@ -383,16 +375,12 @@ thread_set_priority (int new_priority)
       struct thread* next = cur->waiting_lock->holder;
       while(next){
         list_remove(&cur->donorelem);
-        // if(cur->priority > next->original_priority){
         list_insert_ordered(&next->donor_thread_list, &cur->donorelem, donor_greater_func, 0);
-        // }
         if(!list_empty(&next->donor_thread_list)){
           next->priority = list_entry(list_front(&next->donor_thread_list), struct thread, donorelem)->priority;
         }else{
           next->priority = next->original_priority;
         }
-        // list_sort(&next->donor_thread_list, priority_greater_func, 0);
-        // next->priority = list_entry(list_front(&next->donor_thread_list), struct thread, elem)->priority;
         if(next->waiting_lock){  
           next = next->waiting_lock->holder;
         }else{
@@ -514,15 +502,11 @@ void set_mlfqs_load_avg(void)
   struct list_elem *e;
   int cnt = 0;
   cnt = list_size(&ready_list);
-  // for (e = list_begin (priority_queue_list); e != list_end (priority_queue_list); e = list_next (e)){
-  //   cnt+=list_size(&list_entry(e, struct mlfqs_priority_list, elem )->priority_list);
-  // }
   if(strcmp(thread_current()->name, "idle")!=0){
     cnt++;
   }
 
   int first = mult_both(div_f_i(int_to_f(59),60), load_avg);
-  // ASSERT(first!=0); 
   int second = mult_f_i(div_f_i(int_to_f(1),60), cnt);
   load_avg = add_both_f(first, second);
 
@@ -624,10 +608,8 @@ init_thread (struct thread *t, const char *name, int priority)
     t->recent_cpu = 0;
     t->nice = 0;
   }
-  //
   t->original_priority = priority;
   list_init(&t->donor_thread_list);
-  //
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable ();
@@ -769,17 +751,6 @@ bool donor_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUS
          list_entry(b,struct thread,donorelem)->priority;
 
 }
-struct list* get_ready_list(void){
-  return pready_list;
-}
-
-// void change_current_thread(void){
-//   if(!list_empty(&ready_list)&& strcmp(thread_current()->name, "idle")!=0){
-//     if(thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority){
-//       thread_yield(); 
-//     }
-//   }
-// }
 
 void donate_priority(struct thread* donor, struct thread* donee){
   donee->priority = donor->priority;
@@ -789,10 +760,6 @@ void donate_priority(struct thread* donor, struct thread* donee){
     }  
   }
 }
-
-// bool lock_priority_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED) {
-//   return list_entry(a, struct thread, elem)->priority > list_entry(b, struct thread, elem)->priority;
-// }
 
 
 /* Offset of `stack' member within `struct thread'.

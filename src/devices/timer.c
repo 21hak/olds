@@ -104,18 +104,10 @@ timer_sleep (int64_t ticks)
   struct thread *cur = thread_current ();
   enum intr_level old_level;
   old_level = intr_disable ();
-  // if (cur->name != "idle"){
   cur->alarm_time = start + ticks;
   list_insert_ordered(&sleeping_list, &cur->elem, thread_less_func, 0);
   thread_block();
-  // } 
-  // list_push_back(&sleeping_list, &cur->elem);
   intr_set_level (old_level);
-
-  // ASSERT (intr_get_level () == INTR_ON);
-  // while (timer_elapsed (start) < ticks) 
-  //   thread_yield ();
-
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -190,7 +182,6 @@ timer_print_stats (void)
 
 /* Timer interrupt handler. */
 
-/* for project 1*/
 bool thread_less_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED) {
 
   return list_entry(a,struct thread,elem)->alarm_time <
@@ -222,7 +213,6 @@ timer_interrupt (struct intr_frame *args UNUSED)
       for (e = list_begin(pall_list); e != list_end(pall_list); e = list_next (e)){
         if(strcmp(list_entry(e, struct thread, allelem)->name, "idle")!=0){
           set_mlfqs_priority(list_entry(e, struct thread, allelem));
-          // printf("%d\n", list_size(pall_list));
         }
       }
       list_sort(pready_list, priority_greater_func, 0);

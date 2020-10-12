@@ -150,16 +150,11 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-
-
 bool priority_greater_func(struct list_elem *a, struct list_elem *b, void *aux);
 bool sema_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED); 
 bool cond_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED);
 bool donor_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED);
-struct list* get_ready_list(void);
-// void change_current_thread(void);
 void donate_priority(struct thread* donor, struct thread* donee);
-// bool lock_priority_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED);
 void set_mlfqs_recent_cpu(struct thread *t);
 void set_mlfqs_priority(struct thread *t);
 #endif /* threads/thread.h */
