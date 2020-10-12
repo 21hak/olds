@@ -25,6 +25,9 @@ static int64_t ticks;
 /* for project 1 */
 static struct list sleeping_list;
 
+extern struct list* pready_list;
+extern struct list* pall_list;
+extern bool thread_mlfqs;
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
@@ -200,6 +203,33 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+  struct list_elem *e;
+
+  if(thread_mlfqs){
+    if(strcmp(thread_current()->name, "idle")!=0){
+      thread_current()->recent_cpu++;
+    }
+    if(timer_ticks () % TIMER_FREQ==0){
+      set_mlfqs_load_avg();
+      for (e = list_begin(pall_list); e != list_end(pall_list); e = list_next (e)){
+          if(strcmp(list_entry(e, struct thread, elem)->name, "idle")!=0){
+            set_mlfqs_recent_cpu(list_entry(e, struct thread, elem));
+            printf("%s %d\n", list_entry(e, struct thread, elem)->name, list_entry(e, struct thread, elem)->priority);
+          }
+        }
+    }
+    if(timer_ticks () % 4 == 0){
+      for (e = list_begin(pall_list); e != list_end(pall_list); e = list_next (e)){
+        if(strcmp(list_entry(e, struct thread, elem)->name, "idle")!=0){
+          set_mlfqs_priority(list_entry(e, struct thread, elem));
+          // printf("%d\n", list_size(pall_list));
+        }
+      }
+      list_sort(pready_list, priority_greater_func, 0);
+    }  
+  }
+  
+
   while(1){
     if(!list_empty (&sleeping_list)){
       struct thread *head = list_entry(list_front(&sleeping_list), struct thread,elem);
