@@ -9,6 +9,7 @@
 #include "threads/thread.h"
 #include <list.h>
 
+
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -207,21 +208,20 @@ timer_interrupt (struct intr_frame *args UNUSED)
 
   if(thread_mlfqs){
     if(strcmp(thread_current()->name, "idle")!=0){
-      thread_current()->recent_cpu++;
+      thread_current()->recent_cpu = add_f_i(thread_current()->recent_cpu, 1);
     }
     if(timer_ticks () % TIMER_FREQ==0){
       set_mlfqs_load_avg();
       for (e = list_begin(pall_list); e != list_end(pall_list); e = list_next (e)){
-          if(strcmp(list_entry(e, struct thread, elem)->name, "idle")!=0){
-            set_mlfqs_recent_cpu(list_entry(e, struct thread, elem));
-            printf("%s %d\n", list_entry(e, struct thread, elem)->name, list_entry(e, struct thread, elem)->priority);
+          if(strcmp(list_entry(e, struct thread, allelem)->name, "idle")!=0){
+            set_mlfqs_recent_cpu(list_entry(e, struct thread, allelem));
           }
         }
     }
     if(timer_ticks () % 4 == 0){
       for (e = list_begin(pall_list); e != list_end(pall_list); e = list_next (e)){
-        if(strcmp(list_entry(e, struct thread, elem)->name, "idle")!=0){
-          set_mlfqs_priority(list_entry(e, struct thread, elem));
+        if(strcmp(list_entry(e, struct thread, allelem)->name, "idle")!=0){
+          set_mlfqs_priority(list_entry(e, struct thread, allelem));
           // printf("%d\n", list_size(pall_list));
         }
       }

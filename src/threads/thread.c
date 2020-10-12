@@ -431,12 +431,13 @@ thread_set_nice (int nice)
 
   if(strcmp(thread_current()->name, "idle")!=0){
     thread_current()->nice = nice;
+    set_mlfqs_recent_cpu(thread_current());
     set_mlfqs_priority(thread_current());
     list_sort(&ready_list, priority_greater_func, 0);
-    if(!list_empty(&ready_list)){
-      if(thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority){
-        thread_yield(); 
-      }
+  }
+  if(!list_empty(&ready_list)){
+    if(thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority){
+      thread_yield(); 
     }
   }
   intr_set_level (old_level);
@@ -449,8 +450,10 @@ thread_get_nice (void)
 {
   enum intr_level old_level;
   old_level = intr_disable ();
-  return thread_current()->nice;
+  int rst = thread_current()->nice;
   intr_set_level (old_level);
+  return rst;
+  
 
 }
 
@@ -460,10 +463,9 @@ thread_get_load_avg (void)
 {
   enum intr_level old_level;
   old_level = intr_disable ();
-  return f_to_int_round(mult_f_i(load_avg, 100)); 
+  int rst = f_to_int_round(mult_f_i(load_avg, 100));
   intr_set_level (old_level);
-
-;
+  return rst;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -472,8 +474,12 @@ thread_get_recent_cpu (void)
 {
   enum intr_level old_level;
   old_level = intr_disable ();
-  return f_to_int_round(mult_f_i(thread_current()->recent_cpu, 100)); 
+  int rst = f_to_int_round(mult_f_i(thread_current()->recent_cpu, 100));
+  // int rst = thread_current()->recent_cpu;
+  // int rst = mult_f_i(thread_current()->recent_cpu, 100);
   intr_set_level (old_level);
+  return rst; 
+  
 
 }
 
@@ -481,8 +487,8 @@ void set_mlfqs_priority(struct thread *t)
 {
   enum intr_level old_level;
   old_level = intr_disable ();
-
-  t->priority = PRI_MAX - div_f_i(t->recent_cpu, 4) - t->nice * 2; 
+  int recent_cpu = t->recent_cpu;
+  t->priority = f_to_int_round(sub_both_f(sub_both_f(int_to_f(PRI_MAX), div_f_i(recent_cpu, 4)), int_to_f(t->nice * 2)));    
   intr_set_level (old_level);
 
 }
@@ -492,7 +498,7 @@ void set_mlfqs_recent_cpu(struct thread *t)
   enum intr_level old_level;
   old_level = intr_disable ();
 
-  if(strcmp(thread_current()->name, "idle")!=0){
+  if(strcmp(t->name, "idle")!=0){
     int load_avg_mul = mult_f_i(load_avg, 2);
     int coefficient = div_both(load_avg_mul, add_f_i(load_avg_mul, 1)); 
     t->recent_cpu = add_f_i(mult_both(coefficient, t->recent_cpu), t->nice);   
@@ -511,6 +517,9 @@ void set_mlfqs_load_avg(void)
   // for (e = list_begin (priority_queue_list); e != list_end (priority_queue_list); e = list_next (e)){
   //   cnt+=list_size(&list_entry(e, struct mlfqs_priority_list, elem )->priority_list);
   // }
+  if(strcmp(thread_current()->name, "idle")!=0){
+    cnt++;
+  }
 
   int first = mult_both(div_f_i(int_to_f(59),60), load_avg);
   // ASSERT(first!=0); 
