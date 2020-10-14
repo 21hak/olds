@@ -122,15 +122,15 @@ sema_up (struct semaphore *sema)
     thread_unblock (t);    
   }
   sema->value++;
-
-  if(!list_empty(pready_list)&&strcmp(thread_current()->name, "idle")!=0){
-      if(thread_current()->priority < list_entry(list_front(pready_list), struct thread, elem)->priority){
+// if(!list_empty(pready_list)){
+  if((!list_empty(pready_list))){
+    if(thread_current()->priority < list_entry(list_front(pready_list), struct thread, elem)->priority){
         thread_yield(); 
-      }
-    } 
+    }
+  } 
   intr_set_level (old_level);
-  
-}
+}  
+
 
 static void sema_test_helper (void *sema_);
 
