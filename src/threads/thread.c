@@ -371,23 +371,23 @@ thread_set_priority (int new_priority)
       }  
     }
     
-    if(cur->waiting_lock){
-      struct thread* next = cur->waiting_lock->holder;
-      while(next){
-        list_remove(&cur->donorelem);
-        list_insert_ordered(&next->donor_thread_list, &cur->donorelem, donor_greater_func, 0);
-        if(!list_empty(&next->donor_thread_list)){
-          next->priority = list_entry(list_front(&next->donor_thread_list), struct thread, donorelem)->priority;
-        }else{
-          next->priority = next->original_priority;
-        }
-        if(next->waiting_lock){  
-          next = next->waiting_lock->holder;
-        }else{
-          next = NULL;
-        }
-      }  
-    }
+    // if(cur->waiting_lock){
+    //   struct thread* next = cur->waiting_lock->holder;
+    //   while(next){
+    //     list_remove(&cur->donorelem);
+    //     list_insert_ordered(&next->donor_thread_list, &cur->donorelem, donor_greater_func, 0);
+    //     if(!list_empty(&next->donor_thread_list)){
+    //       next->priority = list_entry(list_front(&next->donor_thread_list), struct thread, donorelem)->priority;
+    //     }else{
+    //       next->priority = next->original_priority;
+    //     }
+    //     if(next->waiting_lock){  
+    //       next = next->waiting_lock->holder;
+    //     }else{
+    //       next = NULL;
+    //     }
+    //   }  
+    // }
   }
 
   
