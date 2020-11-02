@@ -122,24 +122,22 @@ sema_up (struct semaphore *sema)
     thread_unblock (t);    
   }
   sema->value++;
+   
 // if(!list_empty(pready_list)){
-  if((!list_empty(pready_list))){
-    if(thread_current()->priority < list_entry(list_front(pready_list), struct thread, elem)->priority){
-        intr_set_level (old_level);
-        thread_yield(); 
-    } else{
-      intr_set_level (old_level);
-    }
-  } else{
+  if((strcmp(thread_current()->name, "idle")!=0)&&(!list_empty(pready_list))&& (thread_current()->priority < list_entry(list_front(pready_list), struct thread, elem)->priority)){
     intr_set_level (old_level);
-  }
+    thread_yield(); 
+  }else{
+    intr_set_level (old_level);  
+  } 
+  
   // intr_set_level (old_level);
   
-  /*if((!list_empty(pready_list))){
-    if(thread_current()->priority < list_entry(list_front(pready_list), struct thread, elem)->priority){
-        thread_yield(); 
-    }
-  }*/ 
+  // if((!list_empty(pready_list))){
+  //   if(thread_current()->priority < list_entry(list_front(pready_list), struct thread, elem)->priority){
+  //       thread_yield(); 
+  //   }
+  // } 
 }  
 
 
