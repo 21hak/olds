@@ -125,10 +125,21 @@ sema_up (struct semaphore *sema)
 // if(!list_empty(pready_list)){
   if((!list_empty(pready_list))){
     if(thread_current()->priority < list_entry(list_front(pready_list), struct thread, elem)->priority){
+        intr_set_level (old_level);
+        thread_yield(); 
+    } else{
+      intr_set_level (old_level);
+    }
+  } else{
+    intr_set_level (old_level);
+  }
+  // intr_set_level (old_level);
+  
+  /*if((!list_empty(pready_list))){
+    if(thread_current()->priority < list_entry(list_front(pready_list), struct thread, elem)->priority){
         thread_yield(); 
     }
-  } 
-  intr_set_level (old_level);
+  }*/ 
 }  
 
 
@@ -372,10 +383,11 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (!intr_context ());
   ASSERT (lock_held_by_current_thread (lock));
 
-  if (!list_empty (&cond->waiters))
+  if (!list_empty (&cond->waiters)){
     list_sort(&cond->waiters, cond_greater_func, 0);
     sema_up (&list_entry (list_pop_front (&cond->waiters),
                           struct semaphore_elem, elem)->semaphore);
+    }
   }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
