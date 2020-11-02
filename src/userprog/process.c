@@ -29,6 +29,8 @@ tid_t
 process_execute (const char *file_name) 
 {
   char *fn_copy;
+  char *temp_file_name;
+  char *save_ptr;
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
@@ -37,9 +39,10 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
+  temp_file_name = strtok_r(file_name, " ", &save_ptr);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (temp_file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -53,13 +56,61 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
+  char *s_copy;
+  char *token;
+  char *save_ptr;
+  char *p;
+  int arg_len = 0;
+  void *esp; 
+  uint32_t *temp_address;
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
+
+  for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
+        token = strtok_r (NULL, " ", &save_ptr)){
+    arg_len++;
+    strlcat(s_copy, " ", 1);
+    strlcat(s_copy, token, strlen(token));
+  }
+
+  temp_address = (uint32_t*)calloc(arg_len, sizeof(uint32_t)); 
+
   success = load (file_name, &if_.eip, &if_.esp);
+
+  for (int i=0, token = strtok_r (s_copy, " ", &save_ptr); token != NULL;
+        token = strtok_r (NULL, " ", &save_ptr), i++){
+    if_.esp -= (strlen(token) + 1);
+    temp_address[i] = if_.esp;
+    arg_len += (strlen(token) + 1);
+    esp = if_.esp;
+    for(p = token; *p != '\0'; p++){
+      *(char *)if_.esp = *p;
+      esp++;
+    }
+    *(char *)if_.esp = '\0';
+    esp++;
+  }
+
+  if_.esp -= 4;
+  *(uint8_t *)if_.esp = (uint8_t)0;
+  if_.esp -= 4;
+  *(char *)if_.esp = (char *)0;
+
+  for(int i=0; i < arg_len; i++){
+    if_.esp -= 4;
+    *(char *)if_.esp = temp_address[i];
+  }
+  if_.esp -= 4;
+  *(char *)if_.esp = *(char *)(if_.esp + 4);
+  if_.esp -= 4;
+  *(int *)if_.esp = arg_len;
+  if_.esp -= 4;
+  *(int *)if_.esp = 0;
+
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
