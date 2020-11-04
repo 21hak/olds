@@ -29,22 +29,27 @@ tid_t
 process_execute (const char *file_name) 
 {
   char *fn_copy;
-  char *temp_file_name;
+  char *fn_copy2;
   char *save_ptr;
+  char *temp_file_name;
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
-  if (fn_copy == NULL)
+  fn_copy2 = palloc_get_page (0);
+  if (fn_copy == NULL && fn_copy2 == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
-  temp_file_name = strtok_r(file_name, " ", &save_ptr);
+  strlcpy (fn_copy2, file_name, PGSIZE);
 
+
+  temp_file_name = strtok_r(fn_copy2, " ", &save_ptr);
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (temp_file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+    palloc_free_page (fn_copy);
+  palloc_free_page(fn_copy2); 
   return tid;
 }
 
@@ -60,7 +65,10 @@ start_process (void *file_name_)
   char *token;
   char *save_ptr;
   char *p;
+  char *temp_argv;
+  char dummy = 'a';
   int arg_len = 0;
+  int total_len = 0;
   void *esp; 
   uint32_t *temp_address;
 
@@ -70,53 +78,60 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
-  for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
+  // s_copy = palloc_get_page (0);
+  s_copy = (char *)malloc(strlen(file_name)+1);
+  strlcpy (s_copy, file_name, strlen(file_name) + 1);
+  for (token = strtok_r (s_copy, " ", &save_ptr); token != NULL;
         token = strtok_r (NULL, " ", &save_ptr)){
+    total_len += (strlen(token) + 1);
     arg_len++;
-    strlcat(s_copy, " ", 1);
-    strlcat(s_copy, token, strlen(token));
   }
 
+  // temp_argv = (char**)calloc(arg_len, sizeof(char*));
   temp_address = (uint32_t*)calloc(arg_len, sizeof(uint32_t)); 
+  
+  strlcpy (s_copy, file_name, strlen(file_name)+1);
+  success = load (strtok_r(file_name, " ", &save_ptr), &if_.eip, &if_.esp);
 
-  success = load (file_name, &if_.eip, &if_.esp);
+  for (int i = 0, token = strtok_r (s_copy, " ", &save_ptr); token != NULL;
+      token = strtok_r (NULL, " ", &save_ptr), i ++){
+      if_.esp -= (strlen(token) +1);
 
-  for (int i=0, token = strtok_r (s_copy, " ", &save_ptr); token != NULL;
-        token = strtok_r (NULL, " ", &save_ptr), i++){
-    if_.esp -= (strlen(token) + 1);
-    temp_address[i] = if_.esp;
-    arg_len += (strlen(token) + 1);
-    esp = if_.esp;
-    for(p = token; *p != '\0'; p++){
-      *(char *)if_.esp = *p;
-      esp++;
-    }
-    *(char *)if_.esp = '\0';
-    esp++;
+      strlcpy(if_.esp, token, strlen(token) + 1);
+      *(temp_address+4*i) = if_.esp;
+      
+  }
+
+  if(total_len % 4 != 0)
+    if_.esp -= (4 - total_len % 4);
+
+  if_.esp -= 4;
+  *(uint32_t *)if_.esp = (uint32_t *)0;
+
+  for (int i = arg_len - 1; i >= 0; i--){
+    if_.esp -=4;
+    *(uint32_t *)if_.esp = *(temp_address+4*i);
   }
 
   if_.esp -= 4;
-  *(uint8_t *)if_.esp = (uint8_t)0;
-  if_.esp -= 4;
-  *(char *)if_.esp = (char *)0;
-
-  for(int i=0; i < arg_len; i++){
-    if_.esp -= 4;
-    *(char *)if_.esp = temp_address[i];
-  }
-  if_.esp -= 4;
-  *(char *)if_.esp = *(char *)(if_.esp + 4);
+  *(uint32_t *)if_.esp = (if_.esp + 4);
   if_.esp -= 4;
   *(int *)if_.esp = arg_len;
   if_.esp -= 4;
-  *(int *)if_.esp = 0;
+  *(uint32_t *)if_.esp = 0;
 
+  // hex_dump(if_.esp, if_.esp, 100, true);
+  
+
+  // free(temp_argv);
+  free(temp_address);
+  free(s_copy);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
-  if (!success) 
+  if (!success){
     thread_exit ();
-
+  }
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -138,7 +153,11 @@ start_process (void *file_name_)
    does nothing. */
 int
 process_wait (tid_t child_tid UNUSED) 
-{
+{ 
+  int i=0;
+  while(i<1000000000){
+    i++;
+  }
   return -1;
 }
 
@@ -225,7 +244,7 @@ struct Elf32_Phdr
     Elf32_Off  p_offset;
     Elf32_Addr p_vaddr;
     Elf32_Addr p_paddr;
-    Elf32_Word p_filesz;
+    Elf32_Word p_filesz;\
     Elf32_Word p_memsz;
     Elf32_Word p_flags;
     Elf32_Word p_align;
