@@ -17,6 +17,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -32,6 +33,8 @@ process_execute (const char *file_name)
   char *fn_copy2;
   char *save_ptr;
   char *temp_file_name;
+  struct list_elem *de;
+
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
@@ -43,10 +46,22 @@ process_execute (const char *file_name)
   strlcpy (fn_copy, file_name, PGSIZE);
   strlcpy (fn_copy2, file_name, PGSIZE);
 
-
   temp_file_name = strtok_r(fn_copy2, " ", &save_ptr);
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (temp_file_name, PRI_DEFAULT, start_process, fn_copy);
+  if(tid!=-1){
+    sema_down(&thread_current()->child_load);
+    for (de = list_begin (&thread_current()->dead_children); de != list_end (&thread_current()->dead_children);
+       de = list_next (de)){
+      struct dead_child * dc = list_entry(de, struct dead_child, dead_elem)->tid;
+      if(dc->tid==tid && dc->load_status==-1){
+        list_remove(de);
+        free(dc);
+        tid=-1;
+        break;
+      }
+    }  
+  }
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
   palloc_free_page(fn_copy2); 
@@ -92,13 +107,16 @@ start_process (void *file_name_)
   
   strlcpy (s_copy, file_name, strlen(file_name)+1);
   success = load (strtok_r(file_name, " ", &save_ptr), &if_.eip, &if_.esp);
-
+  if(success)
+    thread_current()->load_status = 0;
+  if(thread_current()->parent)
+    sema_up(&thread_current()->parent->child_load);
   for (int i = 0, token = strtok_r (s_copy, " ", &save_ptr); token != NULL;
       token = strtok_r (NULL, " ", &save_ptr), i ++){
       if_.esp -= (strlen(token) +1);
 
       strlcpy(if_.esp, token, strlen(token) + 1);
-      *(temp_address+4*i) = if_.esp;
+      temp_address[i] = if_.esp;
       
   }
 
@@ -110,7 +128,7 @@ start_process (void *file_name_)
 
   for (int i = arg_len - 1; i >= 0; i--){
     if_.esp -=4;
-    *(uint32_t *)if_.esp = *(temp_address+4*i);
+    *(uint32_t *)if_.esp = temp_address[i];
   }
 
   if_.esp -= 4;
@@ -120,7 +138,6 @@ start_process (void *file_name_)
   if_.esp -= 4;
   *(uint32_t *)if_.esp = 0;
 
-  // hex_dump(if_.esp, if_.esp, 100, true);
   
 
   // free(temp_argv);
@@ -129,6 +146,7 @@ start_process (void *file_name_)
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
+
   if (!success){
     thread_exit ();
   }
@@ -154,11 +172,28 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 { 
-  int i=0;
-  while(i<1000000000){
-    i++;
-  }
-  return -1;
+  struct list_elem *e;
+  struct list_elem *de;
+  int exit_status=-1;
+  for (e = list_begin (&thread_current()->child_list); e != list_end (&thread_current()->child_list);
+       e = list_next (e))
+    {
+      struct thread *t = list_entry (e, struct thread, child_elem);
+      if(t->tid==child_tid){
+        sema_down(&thread_current()->child_exit);
+      }
+    }
+  for (de = list_begin (&thread_current()->dead_children); de != list_end (&thread_current()->dead_children);
+     de = list_next (de)){
+    struct dead_child * dc = list_entry(de, struct dead_child, dead_elem)->tid;
+    if(dc->tid==child_tid){
+      list_remove(de);
+      free(dc);
+      exit_status=child_tid;
+      break;
+    }
+  } 
+  return exit_status;
 }
 
 /* Free the current process's resources. */
@@ -167,9 +202,22 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-
+  struct dead_child *dead_process;
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
+  dead_process = (struct dead_child*)malloc(sizeof(struct dead_child));
+  dead_process-> exit_status = cur->exit_status;
+  dead_process-> load_status = cur->load_status;
+  if(cur->parent){
+    list_push_back (&cur->parent->dead_children, &dead_process->dead_elem);
+    list_remove(&cur->child_elem);
+  }
+  for(int i=0; i<128;i++){
+    file_close(cur->open_file_list[i]);
+  }
+
+
+
   pd = cur->pagedir;
   if (pd != NULL) 
     {
@@ -184,6 +232,13 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+
+  if(cur->parent)
+    sema_up(&cur->parent->child_exit);
+
+  if(cur->parent && cur->load_status==-1)
+    sema_up(&cur->parent->child_load);
+
 }
 
 /* Sets up the CPU for running user code in the current
@@ -244,7 +299,7 @@ struct Elf32_Phdr
     Elf32_Off  p_offset;
     Elf32_Addr p_vaddr;
     Elf32_Addr p_paddr;
-    Elf32_Word p_filesz;\
+    Elf32_Word p_filesz;
     Elf32_Word p_memsz;
     Elf32_Word p_flags;
     Elf32_Word p_align;
