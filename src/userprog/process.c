@@ -39,17 +39,21 @@ process_execute (const char *file_name)
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
+  printf("exec start\n");
   fn_copy = palloc_get_page (0);
   fn_copy2 = palloc_get_page (0);
+  printf("%s\n",file_name );
   if (fn_copy == NULL && fn_copy2 == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
   strlcpy (fn_copy2, file_name, PGSIZE);
-
+  printf("%s\n", file_name);
   temp_file_name = strtok_r(fn_copy2, " ", &save_ptr);
+  printf("%s\n", temp_file_name);
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (temp_file_name, PRI_DEFAULT, start_process, fn_copy);
   if(tid!=-1){
+    printf("exec mid1\n");
     sema_down(&thread_current()->child_load);
     for (de = list_begin (&thread_current()->dead_children); de != list_end (&thread_current()->dead_children);
        de = list_next (de)){
@@ -62,6 +66,7 @@ process_execute (const char *file_name)
       }
     }  
   }
+  printf("exec end\n");
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
   palloc_free_page(fn_copy2); 
@@ -81,7 +86,6 @@ start_process (void *file_name_)
   char *save_ptr;
   char *p;
   char *temp_argv;
-  char dummy = 'a';
   int arg_len = 0;
   int total_len = 0;
   void *esp; 
@@ -107,10 +111,12 @@ start_process (void *file_name_)
   
   strlcpy (s_copy, file_name, strlen(file_name)+1);
   success = load (strtok_r(file_name, " ", &save_ptr), &if_.eip, &if_.esp);
-  if(success)
+  if(success){
     thread_current()->load_status = 0;
-  if(thread_current()->parent)
-    sema_up(&thread_current()->parent->child_load);
+    if(thread_current()->parent)
+      sema_up(&thread_current()->parent->child_load);
+  }
+ 
   for (int i = 0, token = strtok_r (s_copy, " ", &save_ptr); token != NULL;
       token = strtok_r (NULL, " ", &save_ptr), i ++){
       if_.esp -= (strlen(token) +1);
@@ -172,6 +178,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 { 
+  printf("wait start\n");
   struct list_elem *e;
   struct list_elem *de;
   int exit_status=-1;
@@ -181,18 +188,22 @@ process_wait (tid_t child_tid UNUSED)
       struct thread *t = list_entry (e, struct thread, child_elem);
       if(t->tid==child_tid){
         sema_down(&thread_current()->child_exit);
+        break;
       }
     }
+  printf("wait middle\n");
   for (de = list_begin (&thread_current()->dead_children); de != list_end (&thread_current()->dead_children);
      de = list_next (de)){
-    struct dead_child * dc = list_entry(de, struct dead_child, dead_elem)->tid;
-    if(dc->tid==child_tid){
+    struct dead_child * dc = list_entry(de, struct dead_child, dead_elem);
+    if(dc->tid == child_tid){
+      exit_status=dc->exit_status;
       list_remove(de);
       free(dc);
-      exit_status=child_tid;
       break;
     }
   } 
+   printf("wait end\n");
+
   return exit_status;
 }
 
@@ -200,6 +211,7 @@ process_wait (tid_t child_tid UNUSED)
 void
 process_exit (void)
 {
+  // printf("exit start\n");
   struct thread *cur = thread_current ();
   uint32_t *pd;
   struct dead_child *dead_process;
@@ -208,15 +220,18 @@ process_exit (void)
   dead_process = (struct dead_child*)malloc(sizeof(struct dead_child));
   dead_process-> exit_status = cur->exit_status;
   dead_process-> load_status = cur->load_status;
+
+  for(int i=2; i<128;i++){
+    file_close(cur->open_file_list[i]);
+  }
   if(cur->parent){
     list_push_back (&cur->parent->dead_children, &dead_process->dead_elem);
     list_remove(&cur->child_elem);
+    sema_up(&cur->parent->child_exit);
   }
-  for(int i=0; i<128;i++){
-    file_close(cur->open_file_list[i]);
-  }
-
-
+  if(cur->parent && cur->load_status==-1)
+    sema_up(&cur->parent->child_load);
+  // printf("exit end\n");
 
   pd = cur->pagedir;
   if (pd != NULL) 
@@ -232,12 +247,6 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-
-  if(cur->parent)
-    sema_up(&cur->parent->child_exit);
-
-  if(cur->parent && cur->load_status==-1)
-    sema_up(&cur->parent->child_load);
 
 }
 
