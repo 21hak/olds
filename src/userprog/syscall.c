@@ -35,6 +35,7 @@ bool check_valid(const void *vaddr);
 struct semaphore read_sema;
 struct semaphore write_sema;
 int read_count;
+extern struct list* pall_list;
 
 void
 syscall_init (void) 
@@ -49,8 +50,9 @@ bool check_valid(const void *vaddr){
 	for(int i = 0; i < 4; i++){
 		if(vaddr+i==NULL || !is_user_vaddr(vaddr+i) || vaddr+i <= 0x8048000){
 			return false;
-		} 
-		else if(pagedir_get_page(thread_current()->pagedir, vaddr+i)==NULL){
+		}
+		void * ptr = pagedir_get_page(thread_current()->pagedir, vaddr+i); 
+		if(!ptr){
 			return false;
 		}	
 	}
@@ -60,7 +62,7 @@ bool check_valid(const void *vaddr){
 
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
-{
+{	
 	if(check_valid(f->esp)){
 		switch(*(uint32_t*)(f->esp)){
 		case SYS_HALT:
@@ -136,7 +138,11 @@ void sys_exec(struct intr_frame *f){
 	int tid;
 	if (!check_valid(f->esp +4))
 		sys_exit(f);
-	char* file = *(char*)(f->esp + 4);
+	char* file = (char*)*(uint32_t *)(f->esp + 4);
+	if(!check_valid(file)){
+		f->esp = NULL;
+		sys_exit(f);
+	}
 	tid = process_execute(file);
 	f->eax = (uint32_t)tid;
 }
@@ -152,10 +158,15 @@ void sys_wait(struct intr_frame *f){
 void sys_write(struct intr_frame *f){
 	if (!check_valid(f->esp+4))
 		sys_exit(f);
-	if (!check_valid(f->esp+8))
+	if (!check_valid(f->esp+8)){
+		f->esp=NULL;
 		sys_exit(f);
-	if (!check_valid(f->esp+12))
+	}
+	if (!check_valid(f->esp+12)){
+		f->esp=NULL;
 		sys_exit(f);
+	}
+	
 	int fd = (int)*(uint32_t *)(f->esp+4);
 	char *buffer = (void*)*(uint32_t *)(f->esp+8);
 	unsigned size = (unsigned)*(uint32_t *)(f->esp+12);
@@ -177,18 +188,19 @@ void sys_write(struct intr_frame *f){
 			write_bytes = file_write(thread_current()->open_file_list[fd], (void*)buffer, size);
 		}
 		f->eax = write_bytes;
-  	}  	
+  	}
   	sema_up(&write_sema);
-
-	
 }	
 
 void sys_create(struct intr_frame *f){
 	bool rst;
 	if (!check_valid(f->esp+4))
 		sys_exit(f);
-	if (!check_valid(f->esp+8))
+	if (!check_valid(f->esp+8)){
+		f->esp = NULL;
 		sys_exit(f);
+	}
+		
 	char *name = (char*)*(uint32_t *)(f->esp+4);
 	if(!check_valid(name)){
 		f->esp = NULL;
@@ -215,26 +227,43 @@ void sys_open(struct intr_frame *f){
 	int fd = -1;
 	char* name;
 	struct file* o_file;
+	struct list_elem *e;
+
 	if (!check_valid(f->esp+4))
 		sys_exit(f);
 	name = (char*)*(uint32_t *)(f->esp+4);
 	if(!check_valid(name)){
 		f->esp = NULL;
 		sys_exit(f);
-	} else {
-		o_file = filesys_open (name);
-		if(o_file){
-			for(fd = 2; fd<128 ; fd++){
-				if(thread_current()->open_file_list[fd]==NULL){
-					thread_current()->open_file_list[fd] = o_file;
-					break;
-				} 
-			}
-			if(fd==128){
-				fd = -1;
-			}
-		}
 	}
+
+	o_file = filesys_open (name);
+
+	
+	if(o_file){
+		for (e = list_begin (pall_list); e != list_end (pall_list); e = list_next (e))
+	    {
+	      struct thread *t = list_entry (e, struct thread, allelem);
+	      if(strcmp(name, t->name)==0){
+	      	file_deny_write(o_file);
+	      	break;
+	      }
+	    }
+		for(fd = 2; fd<128 ; fd++){
+			if(thread_current()->open_file_list[fd]==NULL){
+				thread_current()->open_file_list[fd] = o_file;
+				break;
+			} 
+		}
+		if(fd==128){
+			fd = -1;
+		}
+	} else {
+		f->esp = NULL;
+		sys_exit(f);
+	}
+
+
 	f->eax = fd;	
 }
 
@@ -256,10 +285,14 @@ void sys_close(struct intr_frame *f){
 void sys_read(struct intr_frame *f){
 	if (!check_valid(f->esp+4))
 		sys_exit(f);
-	if (!check_valid(f->esp+8))
+	if (!check_valid(f->esp+8)){
+		f->esp = NULL;
 		sys_exit(f);
-	if (!check_valid(f->esp+12))
+	}
+	if (!check_valid(f->esp+12)){
+		f->esp = NULL;
 		sys_exit(f);
+	}
 	
 	int fd = (int)*(uint32_t *)(f->esp+4);
 	char *buffer = (void*)*(uint32_t *)(f->esp+8);
@@ -301,10 +334,14 @@ void sys_read(struct intr_frame *f){
 }
 
 void sys_seek(struct intr_frame *f){
-	if (!check_valid(f->esp+4))
+	if (!check_valid(f->esp+4)){
+		f->esp=NULL;
 		sys_exit(f);
-	if (!check_valid(f->esp+8))
+	}
+	if (!check_valid(f->esp+8)){
+		f->esp=NULL;
 		sys_exit(f);
+	}
 	int fd = (int)*(uint32_t *)(f->esp+4);
 	if(fd>127 || fd<2){
 		f->esp = NULL;

@@ -34,42 +34,45 @@ process_execute (const char *file_name)
   char *save_ptr;
   char *temp_file_name;
   struct list_elem *de;
+  int load_status = 0;
 
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
-  printf("exec start\n");
+  // printf("exec start\n");
   fn_copy = palloc_get_page (0);
-  fn_copy2 = palloc_get_page (0);
-  printf("%s\n",file_name );
-  if (fn_copy == NULL && fn_copy2 == NULL)
+  fn_copy2 = (char *)malloc(strlen(file_name)+1);
+
+
+  if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
   strlcpy (fn_copy2, file_name, PGSIZE);
-  printf("%s\n", file_name);
   temp_file_name = strtok_r(fn_copy2, " ", &save_ptr);
-  printf("%s\n", temp_file_name);
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (temp_file_name, PRI_DEFAULT, start_process, fn_copy);
   if(tid!=-1){
-    printf("exec mid1\n");
+    // printf("exec mid1\n");
     sema_down(&thread_current()->child_load);
     for (de = list_begin (&thread_current()->dead_children); de != list_end (&thread_current()->dead_children);
        de = list_next (de)){
-      struct dead_child * dc = list_entry(de, struct dead_child, dead_elem)->tid;
+      struct dead_child * dc = list_entry(de, struct dead_child, dead_elem);
+
       if(dc->tid==tid && dc->load_status==-1){
         list_remove(de);
         free(dc);
         tid=-1;
+        load_status = -1;
         break;
       }
     }  
   }
-  printf("exec end\n");
-  if (tid == TID_ERROR)
+  if (tid == TID_ERROR && load_status!=-1){
     palloc_free_page (fn_copy);
-  palloc_free_page(fn_copy2); 
+
+  }
+  free(fn_copy2);     
   return tid;
 }
 
@@ -110,40 +113,39 @@ start_process (void *file_name_)
   temp_address = (uint32_t*)calloc(arg_len, sizeof(uint32_t)); 
   
   strlcpy (s_copy, file_name, strlen(file_name)+1);
+  // printf("%s\n", file_name);
   success = load (strtok_r(file_name, " ", &save_ptr), &if_.eip, &if_.esp);
   if(success){
     thread_current()->load_status = 0;
     if(thread_current()->parent)
       sema_up(&thread_current()->parent->child_load);
-  }
- 
-  for (int i = 0, token = strtok_r (s_copy, " ", &save_ptr); token != NULL;
+    for (int i = 0, token = strtok_r (s_copy, " ", &save_ptr); token != NULL;
       token = strtok_r (NULL, " ", &save_ptr), i ++){
       if_.esp -= (strlen(token) +1);
 
       strlcpy(if_.esp, token, strlen(token) + 1);
       temp_address[i] = if_.esp;
       
+      }
+
+    if(total_len % 4 != 0)
+      if_.esp -= (4 - total_len % 4);
+
+    if_.esp -= 4;
+    *(uint32_t *)if_.esp = (uint32_t *)0;
+
+    for (int i = arg_len - 1; i >= 0; i--){
+      if_.esp -=4;
+      *(uint32_t *)if_.esp = temp_address[i];
+    }
+
+    if_.esp -= 4;
+    *(uint32_t *)if_.esp = (if_.esp + 4);
+    if_.esp -= 4;
+    *(int *)if_.esp = arg_len;
+    if_.esp -= 4;
+    *(uint32_t *)if_.esp = 0;
   }
-
-  if(total_len % 4 != 0)
-    if_.esp -= (4 - total_len % 4);
-
-  if_.esp -= 4;
-  *(uint32_t *)if_.esp = (uint32_t *)0;
-
-  for (int i = arg_len - 1; i >= 0; i--){
-    if_.esp -=4;
-    *(uint32_t *)if_.esp = temp_address[i];
-  }
-
-  if_.esp -= 4;
-  *(uint32_t *)if_.esp = (if_.esp + 4);
-  if_.esp -= 4;
-  *(int *)if_.esp = arg_len;
-  if_.esp -= 4;
-  *(uint32_t *)if_.esp = 0;
-
   
 
   // free(temp_argv);
@@ -178,7 +180,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 { 
-  printf("wait start\n");
+  // printf("wait start\n");
   struct list_elem *e;
   struct list_elem *de;
   int exit_status=-1;
@@ -191,7 +193,7 @@ process_wait (tid_t child_tid UNUSED)
         break;
       }
     }
-  printf("wait middle\n");
+  // printf("wait middle\n");
   for (de = list_begin (&thread_current()->dead_children); de != list_end (&thread_current()->dead_children);
      de = list_next (de)){
     struct dead_child * dc = list_entry(de, struct dead_child, dead_elem);
@@ -202,7 +204,7 @@ process_wait (tid_t child_tid UNUSED)
       break;
     }
   } 
-   printf("wait end\n");
+   // printf("wait end\n");
 
   return exit_status;
 }
@@ -220,14 +222,16 @@ process_exit (void)
   dead_process = (struct dead_child*)malloc(sizeof(struct dead_child));
   dead_process-> exit_status = cur->exit_status;
   dead_process-> load_status = cur->load_status;
-
+  dead_process-> tid = cur->tid;
   for(int i=2; i<128;i++){
     file_close(cur->open_file_list[i]);
   }
   if(cur->parent){
     list_push_back (&cur->parent->dead_children, &dead_process->dead_elem);
     list_remove(&cur->child_elem);
+
     sema_up(&cur->parent->child_exit);
+
   }
   if(cur->parent && cur->load_status==-1)
     sema_up(&cur->parent->child_load);
