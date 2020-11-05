@@ -611,7 +611,18 @@ init_thread (struct thread *t, const char *name, int priority)
   t->original_priority = priority;
   list_init(&t->donor_thread_list);
   t->magic = THREAD_MAGIC;
+  /* system call */
+  t->exit_status = -1;
+  t->load_status = -1;
+  list_init(&t->child_list);
+  list_init(&t->dead_children);
+  sema_init(&t->child_load, 0);
+  sema_init(&t->child_exit, 0);
 
+  if(strcmp(name, "main")!=0){
+    list_push_back(&thread_current()->child_list, &t->child_elem);
+    t->parent = thread_current();
+  }
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);

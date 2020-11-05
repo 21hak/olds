@@ -23,46 +23,60 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
   // thread_exit ();
   // printf("%p\n", (uint32_t*)(f->esp));
-  switch(*(uint32_t*)(f->esp)){
-  	case SYS_HALT:
-  		halt();
-      	break;
-    case SYS_EXIT:
-      	exit(f);
-      	break;
-    case SYS_EXEC:
-      	exec(f);
-      	break;
-    case SYS_WAIT:
-      	wait(f);
-      	break;
-    case SYS_CREATE:
-      break;
-    case SYS_REMOVE:
-      break;
-    case SYS_OPEN:
-      break;
-    case SYS_FILESIZE:
-      break;
-    case SYS_READ:
-      break;
-    case SYS_WRITE:
-    	write(f);
-      	break;
-    case SYS_SEEK:
-      break;
-    case SYS_TELL:
-      break;
-    case SYS_CLOSE:
-      break;
+check_valid(f->esp);
+
+switch(*(uint32_t*)(f->esp)){
+	case SYS_HALT:
+	halt();
+  	break;
+case SYS_EXIT:
+  	exit(f);
+  	break;
+case SYS_EXEC:
+  	exec(f);
+  	break;
+case SYS_WAIT:
+  	wait(f);
+  	break;
+case SYS_CREATE:
+  break;
+case SYS_REMOVE:
+  break;
+case SYS_OPEN:
+  break;
+case SYS_FILESIZE:
+  break;
+case SYS_READ:
+  break;
+case SYS_WRITE:
+	write(f);
+  	break;
+case SYS_SEEK:
+  break;
+case SYS_TELL:
+  break;
+case SYS_CLOSE:
+  break;
   }
 }
 
+static int 
+get_user (const uint8_t *uaddr){
+	int result;
+	asm("movl $1f, %0; movzbl %1, %0; 1:": "=&a"(result) : "m"(*uaddr));
+	return result;
+}
 void check_valid(const void *vaddr){
-	if(!is_user_vaddr(vaddr)){
-		// do something
-	} else if(!pagedir_get_page(thread_current()->pagedir, vaddr)){
-		// do something
+	printf("%p\n", vaddr);
+	if(vaddr==NULL || !is_user_vaddr(vaddr)){
+		exit(-1);
+		printf("%p\n", vaddr);
+
+		// if((get_user((uint8_t*)vaddr)==-1)||(get_user((uint8_t*)(vaddr+1))==-1)||(get_user((uint8_t*)(vaddr+2))==-1)||(get_user((uint8_t*)(vaddr+3))==-1))
+		// 	exit(-1);
+	} else if(pagedir_get_page(thread_current()->pagedir, vaddr)==NULL){
+		printf("%p\n", vaddr);
+		exit(-1);
 	}
 
 }
@@ -88,7 +102,6 @@ void exec(struct intr_frame *f){
 }
 
 void wait(struct intr_frame *f){
-	printf("wait\n");
 	check_valid(f->esp +4);
 	int pid = *(int*)(f->esp + 4);
 	f->eax = (uint32_t)process_wait(pid);
@@ -102,7 +115,6 @@ void write(struct intr_frame *f){
 	int fd = (int)*(uint32_t *)(f->esp+4);
 	char *buffer = (void*)*(uint32_t *)(f->esp+8);
 	unsigned size = (unsigned)*(uint32_t *)(f->esp+12);
-	
 	if (fd == 1) {
     	putbuf(buffer, size);
    		f->eax = size;
