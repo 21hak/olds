@@ -18,6 +18,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
+#include "userprog/syscall.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -154,7 +155,6 @@ start_process (void *file_name_)
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
-
   if (!success){
     thread_exit ();
   }
@@ -164,6 +164,7 @@ start_process (void *file_name_)
      arguments on the stack in the form of a `struct intr_frame',
      we just point the stack pointer (%esp) to our stack frame
      and jump to it. */
+  
   asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
   NOT_REACHED ();
 }
@@ -184,12 +185,16 @@ process_wait (tid_t child_tid UNUSED)
   struct list_elem *e;
   struct list_elem *de;
   int exit_status=-1;
+
   for (e = list_begin (&thread_current()->child_list); e != list_end (&thread_current()->child_list);
        e = list_next (e))
     {
       struct thread *t = list_entry (e, struct thread, child_elem);
       if(t->tid==child_tid){
+        // printf("sema: %d", thread_current()->child_exit.value);
+        t->is_waiting = true;
         sema_down(&thread_current()->child_exit);
+        t->is_waiting = false;
         break;
       }
     }
@@ -197,15 +202,15 @@ process_wait (tid_t child_tid UNUSED)
   for (de = list_begin (&thread_current()->dead_children); de != list_end (&thread_current()->dead_children);
      de = list_next (de)){
     struct dead_child * dc = list_entry(de, struct dead_child, dead_elem);
+
     if(dc->tid == child_tid){
-      exit_status=dc->exit_status;
+      exit_status = dc->exit_status;
       list_remove(de);
       free(dc);
       break;
     }
   } 
    // printf("wait end\n");
-
   return exit_status;
 }
 
@@ -213,7 +218,6 @@ process_wait (tid_t child_tid UNUSED)
 void
 process_exit (void)
 {
-  // printf("exit start\n");
   struct thread *cur = thread_current ();
   uint32_t *pd;
   struct dead_child *dead_process;
@@ -222,6 +226,7 @@ process_exit (void)
   dead_process = (struct dead_child*)malloc(sizeof(struct dead_child));
   dead_process-> exit_status = cur->exit_status;
   dead_process-> load_status = cur->load_status;
+  dead_process-> is_waiting = cur->is_waiting;
   dead_process-> tid = cur->tid;
   for(int i=2; i<128;i++){
     file_close(cur->open_file_list[i]);
@@ -229,14 +234,15 @@ process_exit (void)
   if(cur->parent){
     list_push_back (&cur->parent->dead_children, &dead_process->dead_elem);
     list_remove(&cur->child_elem);
-
-    sema_up(&cur->parent->child_exit);
+    if(cur->is_waiting)
+      sema_up(&cur->parent->child_exit);
 
   }
-  if(cur->parent && cur->load_status==-1)
-    sema_up(&cur->parent->child_load);
-  // printf("exit end\n");
 
+  if(cur->parent && cur->load_status==-1){
+    sema_up(&cur->parent->child_load);
+  }
+  // printf("exit end\n");
   pd = cur->pagedir;
   if (pd != NULL) 
     {

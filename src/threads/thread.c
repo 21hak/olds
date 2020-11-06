@@ -298,7 +298,6 @@ void
 thread_exit (void) 
 {
   ASSERT (!intr_context ());
-
 #ifdef USERPROG
   process_exit ();
 #endif
@@ -622,6 +621,7 @@ init_thread (struct thread *t, const char *name, int priority)
   if(strcmp(name, "main")!=0){
     list_push_back(&thread_current()->child_list, &t->child_elem);
     t->parent = thread_current();
+    t->is_waiting = false;
   }
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

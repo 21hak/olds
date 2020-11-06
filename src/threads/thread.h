@@ -113,6 +113,7 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
     int exit_status;
     int load_status;
+    bool is_waiting;
     struct list child_list;
     struct list_elem child_elem;
     struct thread* parent;
