@@ -53,9 +53,12 @@ bool check_valid(const void *vaddr){
 			return false;
 		}
 		void * ptr = pagedir_get_page(thread_current()->pagedir, vaddr+i); 
-		if(!ptr||is_user_vaddr(ptr)||ptr<= 0x8048000){
+		if(!ptr){
 			return false;
 		}
+		// if(!ptr||is_user_vaddr(ptr)||ptr<= 0x8048000){
+		// 	return false;
+		// }
 	}
 	return true;
 }
@@ -127,7 +130,6 @@ void sys_halt (void){
 void sys_exit(struct intr_frame *f){
 	int exit_status = -1;
 	if(!check_valid(f->eip)){
-		f->esp = NULL;
 		printf("%s: exit(%d)\n", thread_name(), exit_status);
 		thread_exit();
 	}
@@ -243,8 +245,13 @@ void sys_remove(struct intr_frame *f){
 	if (!check_valid(f->esp+4))
 		sys_exit(f);
 	name = (char*)*(uint32_t *)(f->esp+4);
-	rst = filesys_remove (name);
-	f->eax = rst;
+	if(!check_valid(name)){
+		f->esp = NULL;
+		sys_exit(f);
+	}else{
+		rst = filesys_remove (name);
+		f->eax = rst;	
+	}	
 }
 
 
@@ -270,14 +277,17 @@ void sys_open(struct intr_frame *f){
 
 	
 	if(o_file){
-		for (e = list_begin (pall_list); e != list_end (pall_list); e = list_next (e))
-	    {
-	      struct thread *t = list_entry (e, struct thread, allelem);
-	      if(strcmp(name, t->name)==0){
-	      	file_deny_write(o_file);
-	      	break;
-	      }
-	    }
+		/* hakhak */
+		// for (e = list_begin (pall_list); e != list_end (pall_list); e = list_next (e))
+	 //    {
+	 //      struct thread *t = list_entry (e, struct thread, allelem);
+
+	 //      if(strcmp(name, t->name)==0){
+	 //      	file_deny_write(o_file);
+	 //      	break;
+	 //      }
+	 //    }
+		/* hakhak */
 		for(fd = 2; fd<128 ; fd++){
 			if(thread_current()->open_file_list[fd]==NULL){
 				thread_current()->open_file_list[fd] = o_file;
@@ -327,10 +337,6 @@ void sys_read(struct intr_frame *f){
 	if (!check_valid(f->esp+12)){
 		f->esp = NULL;
 		sys_exit(f);
-	}
-	if(!check_valid(f->eip)){
-		f->esp = NULL;
-		sys_exit(f);	
 	}
 	int fd = (int)*(uint32_t *)(f->esp+4);
 	char *buffer = (void*)*(uint32_t *)(f->esp+8);

@@ -54,7 +54,6 @@ process_execute (const char *file_name)
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (temp_file_name, PRI_DEFAULT, start_process, fn_copy);
   if(tid!=-1){
-    // printf("exec mid1\n");
     sema_down(&thread_current()->child_load);
     for (de = list_begin (&thread_current()->dead_children); de != list_end (&thread_current()->dead_children);
        de = list_next (de)){
@@ -73,6 +72,7 @@ process_execute (const char *file_name)
     palloc_free_page (fn_copy);
 
   }
+
   free(fn_copy2);     
   return tid;
 }
@@ -92,6 +92,8 @@ start_process (void *file_name_)
   char *temp_argv;
   int arg_len = 0;
   int total_len = 0;
+    struct file* file;
+
   void *esp; 
   uint32_t *temp_address;
 
@@ -117,6 +119,14 @@ start_process (void *file_name_)
   // printf("%s\n", file_name);
   success = load (strtok_r(file_name, " ", &save_ptr), &if_.eip, &if_.esp);
   if(success){
+    
+    /* hakhak */
+    file = filesys_open (file_name);
+    file_deny_write(file);
+    thread_current()->open_file_list[2] = file;
+    /* hakhak */
+
+
     thread_current()->load_status = 0;
     if(thread_current()->parent)
       sema_up(&thread_current()->parent->child_load);
@@ -148,6 +158,8 @@ start_process (void *file_name_)
     *(uint32_t *)if_.esp = 0;
   }
   
+
+
 
   // free(temp_argv);
   free(temp_address);
