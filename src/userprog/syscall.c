@@ -243,7 +243,6 @@ void sys_open(struct intr_frame *f){
 	int fd = -1;
 	char* name;
 	struct file* o_file;
-	struct list_elem *e;
 
 	if(!check_valid(f->eip)){
 		f->esp = NULL;

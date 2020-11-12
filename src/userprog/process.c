@@ -86,15 +86,12 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
   char *s_copy;
-  char *token;
   char *save_ptr;
-  char *p;
-  char *temp_argv;
+  char *token;
   int arg_len = 0;
   int total_len = 0;
-    struct file* file;
-
-  void *esp; 
+  int i;
+  struct file* file;
   uint32_t *temp_address;
 
   /* Initialize interrupt frame and load executable. */
@@ -123,19 +120,20 @@ start_process (void *file_name_)
     thread_current()->load_status = 0;
     if(thread_current()->parent)
       sema_up(&thread_current()->parent->child_load);
-    for (int i = 0, token = strtok_r (s_copy, " ", &save_ptr); token != NULL;
+
+    for (i = 0, token = strtok_r (s_copy, " ", &save_ptr); token != NULL;
       token = strtok_r (NULL, " ", &save_ptr), i ++){
       if_.esp -= (strlen(token) +1);
 
       strlcpy(if_.esp, token, strlen(token) + 1);
-      temp_address[i] = if_.esp;
+      temp_address[i] = (uint32_t)if_.esp;
       }
 
     if(total_len % 4 != 0)
       if_.esp -= (4 - total_len % 4);
 
     if_.esp -= 4;
-    *(uint32_t *)if_.esp = (uint32_t *)0;
+    *(uint32_t *)if_.esp = (uint32_t)0;
 
     for (int i = arg_len - 1; i >= 0; i--){
       if_.esp -=4;
@@ -143,7 +141,7 @@ start_process (void *file_name_)
     }
 
     if_.esp -= 4;
-    *(uint32_t *)if_.esp = (if_.esp + 4);
+    *(uint32_t *)if_.esp = (uint32_t)(if_.esp + 4);
     if_.esp -= 4;
     *(int *)if_.esp = arg_len;
     if_.esp -= 4;
