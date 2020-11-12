@@ -1,7 +1,6 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
-// #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "devices/shutdown.h"
 #include "threads/vaddr.h"
@@ -15,7 +14,6 @@
 
 static void syscall_handler (struct intr_frame *);
 void sys_halt (void);
-// void sys_exit(struct intr_frame *f);
 void sys_exec(struct intr_frame *f);
 void sys_wait(struct intr_frame *f);
 void sys_write(struct intr_frame *f);
@@ -28,8 +26,6 @@ void sys_read(struct intr_frame *f);
 void sys_seek(struct intr_frame *f);
 void sys_tell(struct intr_frame *f);
 void file_size(struct intr_frame *f);
-// bool check_valid(const void *vaddr);
-
 
 
 struct semaphore read_sema;
@@ -56,9 +52,6 @@ bool check_valid(const void *vaddr){
 		if(!ptr){
 			return false;
 		}
-		// if(!ptr||is_user_vaddr(ptr)||ptr<= 0x8048000){
-		// 	return false;
-		// }
 	}
 	return true;
 }
@@ -107,21 +100,12 @@ syscall_handler (struct intr_frame *f UNUSED)
 		case SYS_CLOSE:
 			sys_close(f);
 		  	break;	
-		  }
+		}
 	} else{
 		sys_exit(f);
 	}
 
 }
-
-// static int 
-// get_user (const uint8_t *uaddr){
-// 	int result;
-// 	asm("movl $1f, %0; movzbl %1, %0; 1:": "=&a"(result) : "m"(*uaddr));
-// 	return result;
-// }
-
-
 
 void sys_halt (void){
 	shutdown_power_off();
@@ -277,17 +261,6 @@ void sys_open(struct intr_frame *f){
 
 	
 	if(o_file){
-		/* hakhak */
-		// for (e = list_begin (pall_list); e != list_end (pall_list); e = list_next (e))
-	 //    {
-	 //      struct thread *t = list_entry (e, struct thread, allelem);
-
-	 //      if(strcmp(name, t->name)==0){
-	 //      	file_deny_write(o_file);
-	 //      	break;
-	 //      }
-	 //    }
-		/* hakhak */
 		for(fd = 2; fd<128 ; fd++){
 			if(thread_current()->open_file_list[fd]==NULL){
 				thread_current()->open_file_list[fd] = o_file;
@@ -299,7 +272,6 @@ void sys_open(struct intr_frame *f){
 		}
 	} else {
 		fd = -1;
-		// sys_exit(f);
 	}
 	f->eax = fd;	
 }

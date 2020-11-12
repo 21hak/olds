@@ -151,7 +151,6 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-  // if(!user || is_kernel_vaddr(fault_addr) || not_present) {
   if(user&&(!check_valid(fault_addr))){
     f->esp=NULL;
     sys_exit(f);

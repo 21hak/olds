@@ -103,7 +103,6 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
-  // s_copy = palloc_get_page (0);
   s_copy = (char *)malloc(strlen(file_name)+1);
   strlcpy (s_copy, file_name, strlen(file_name) + 1);
   for (token = strtok_r (s_copy, " ", &save_ptr); token != NULL;
@@ -112,20 +111,14 @@ start_process (void *file_name_)
     arg_len++;
   }
 
-  // temp_argv = (char**)calloc(arg_len, sizeof(char*));
   temp_address = (uint32_t*)calloc(arg_len, sizeof(uint32_t)); 
   
   strlcpy (s_copy, file_name, strlen(file_name)+1);
-  // printf("%s\n", file_name);
   success = load (strtok_r(file_name, " ", &save_ptr), &if_.eip, &if_.esp);
   if(success){
-    
-    /* hakhak */
     file = filesys_open (file_name);
     file_deny_write(file);
     thread_current()->open_file_list[2] = file;
-    /* hakhak */
-
 
     thread_current()->load_status = 0;
     if(thread_current()->parent)
@@ -136,7 +129,6 @@ start_process (void *file_name_)
 
       strlcpy(if_.esp, token, strlen(token) + 1);
       temp_address[i] = if_.esp;
-      
       }
 
     if(total_len % 4 != 0)
@@ -158,10 +150,6 @@ start_process (void *file_name_)
     *(uint32_t *)if_.esp = 0;
   }
   
-
-
-
-  // free(temp_argv);
   free(temp_address);
   free(s_copy);
 
@@ -193,7 +181,6 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 { 
-  // printf("wait start\n");
   struct list_elem *e;
   struct list_elem *de;
   int exit_status=-1;
@@ -203,18 +190,15 @@ process_wait (tid_t child_tid UNUSED)
     {
       struct thread *t = list_entry (e, struct thread, child_elem);
       if(t->tid==child_tid){
-        // printf("sema: %d", thread_current()->child_exit.value);
         t->is_waiting = true;
         sema_down(&thread_current()->child_exit);
         t->is_waiting = false;
         break;
       }
     }
-  // printf("wait middle\n");
   for (de = list_begin (&thread_current()->dead_children); de != list_end (&thread_current()->dead_children);
      de = list_next (de)){
     struct dead_child * dc = list_entry(de, struct dead_child, dead_elem);
-
     if(dc->tid == child_tid){
       exit_status = dc->exit_status;
       list_remove(de);
@@ -222,7 +206,6 @@ process_wait (tid_t child_tid UNUSED)
       break;
     }
   } 
-   // printf("wait end\n");
   return exit_status;
 }
 
@@ -248,13 +231,11 @@ process_exit (void)
     list_remove(&cur->child_elem);
     if(cur->is_waiting)
       sema_up(&cur->parent->child_exit);
-
   }
 
   if(cur->parent && cur->load_status==-1){
     sema_up(&cur->parent->child_load);
   }
-  // printf("exit end\n");
   pd = cur->pagedir;
   if (pd != NULL) 
     {
