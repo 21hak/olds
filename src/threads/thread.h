@@ -106,11 +106,11 @@ struct thread
     int nice;
     int recent_cpu;
     /* system call*/
-
-
+    uint32_t *pagedir;                  /* Page directory. */
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
-    uint32_t *pagedir;                  /* Page directory. */
+
+
     int exit_status;
     int load_status;
     bool is_waiting;
@@ -122,7 +122,9 @@ struct thread
     struct semaphore child_exit;
     struct file* open_file_list[128];
 #endif
-
+    struct list spt;
+    struct spte *clock_pointer;
+    struct list* frame_table;
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
@@ -130,8 +132,19 @@ struct thread
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
-
 extern bool thread_mlfqs;
+
+
+struct spte {
+  uint8_t *tag;
+  struct file* related_file;
+  bool writable;
+  int offset;
+  int read_byte;
+  struct list_elem spt_elem;
+  struct list_elem frame_elem;
+};
+
 
 void thread_init (void);
 void thread_start (void);

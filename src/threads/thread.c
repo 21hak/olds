@@ -15,6 +15,7 @@
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
+#include "vm/swap.h"
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -98,7 +99,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
-  // mlfqs_init_priority_queue_list();
+  init_swap();
 
 
   load_avg = 0;
@@ -617,6 +618,9 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&t->dead_children);
   sema_init(&t->child_load, 0);
   sema_init(&t->child_exit, 0);
+
+  list_init(&t->spt);
+  list_init(&t->frame_table);
 
   if(strcmp(name, "main")!=0){
     list_push_back(&thread_current()->child_list, &t->child_elem);

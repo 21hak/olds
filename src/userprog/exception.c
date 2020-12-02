@@ -6,6 +6,10 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "userprog/syscall.h"
+#include "filesys/file.h"
+#include "userprog/pagedir.h"
+#include "vm/frame.h"
+#include "vm/swap.h"
 
 
 /* Number of page faults processed. */
@@ -155,6 +159,61 @@ page_fault (struct intr_frame *f)
     f->esp=NULL;
     sys_exit(f);
   }
+
+
+  /* file load */
+  struct list_elem *e;
+  for (e = list_begin (&thread_current()->spt); e != list_end (&thread_current()->spt); e = e->prev){
+    struct spte *spte = list_entry(e, struct spte, spte_elem);
+    file_seek (spte->file, spte->offset);
+
+    if(spte->tag == fault_addr & ~PGMASK){
+      /* Get a page of memory. */
+      uint8_t *kpage = palloc_get_page (PAL_USER);
+      if (kpage == NULL){
+        struct spte* victim = select_victim();
+        if(is_swap(victim)){
+          list_remove(&victim->frame_elem);
+          kpage= pagedir_get_page(thread_current()->pagedir, victim->tag)
+          swap_write(victim);
+        } else {
+          // eviction
+          list_remove(&victim->frame_elem);
+          kpage= pagedir_get_page(thread_current()->pagedir, victim->tag); 
+          pagedir_clear_page(thread_current()->pagedir, victim->tag);
+
+        }
+      }
+
+      /* Load this page. */
+      if(spte->file){
+        if (file_read (spte->file, kpage, spte->read_byte) != (int) stpe->read_byte){
+          palloc_free_page (kpage);
+          return;
+        }
+      }else{
+        swap_read(spte, kpage);
+      }
+      
+      memset (kpage + spte->read_byte, 0, PGSIZE - stpe->read_byte);
+
+      /* Add the page to the process's address space. */
+      if (!install_page (fault_addr, kpage, spte->writable)){
+        palloc_free_page (kpage);
+        return;
+      } else {
+        list_push_back (&thread_current()->frame_table, &spte->frame_elem);
+      }
+    return;
+    }
+  }
+
+  /* stack growth */
+  // check stack growth
+  // if yes do growth and return 
+  // 
+    
+
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
@@ -165,4 +224,6 @@ page_fault (struct intr_frame *f)
           user ? "user" : "kernel");
   kill (f);
 }
+
+
 
