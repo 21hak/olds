@@ -124,7 +124,7 @@ struct thread
 #endif
     struct list spt;
     struct spte *clock_pointer;
-    struct list* frame_table;
+    struct list frame_table;
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };

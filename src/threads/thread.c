@@ -12,10 +12,11 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "threads/float_arithematic.h"
+#include "vm/swap.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
-#include "vm/swap.h"
+
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top

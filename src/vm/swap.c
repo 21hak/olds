@@ -28,7 +28,7 @@ void swap_write(struct spte* victim){
 		block_write(block_get_role(BLOCK_SWAP), pos+i,
 		 pagedir_get_page(thread_current()->pagedir, victim->tag) + offset);
 	}
-	victim->file = NULL;
+	victim->related_file = NULL;
 	pagedir_clear_page(thread_current()->pagedir, victim->tag);
 }
 

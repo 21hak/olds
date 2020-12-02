@@ -533,7 +533,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       
-      struct spte* table_entry = malloc(sizeof(spte));
+      struct spte* table_entry = malloc(sizeof(struct spte));
       table_entry->tag = upage;
       table_entry->related_file = file;
       table_entry->offset = ofs;
@@ -577,7 +577,7 @@ setup_stack (void **esp)
   uint8_t *kpage;
   bool success = false;
 
-  struct spte* table_entry = malloc(sizeof(spte));
+  struct spte* table_entry = malloc(sizeof(struct spte));
   table_entry->tag = ((uint8_t *) PHYS_BASE) - PGSIZE;
   table_entry->related_file = NULL;
   table_entry->offset = 0;

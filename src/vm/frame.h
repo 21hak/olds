@@ -3,4 +3,4 @@
 
 #include "threads/thread.h"
 struct spte* select_victim(void);
-#endif /* vm/frane.h */
+#endif /* vm/frame.h */

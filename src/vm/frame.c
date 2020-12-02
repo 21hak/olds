@@ -1,5 +1,4 @@
 #include "vm/frame.h"
-#include <list.h>
 #include "userprog/pagedir.h"
 
 struct spte* select_victim(){
@@ -15,13 +14,13 @@ struct spte* select_victim(){
 	}
 
 	while(pagedir_is_accessed(thread_current()->pagedir, clock_pointer->tag)){
-		if(is_tail(&clock_pointer->frame_elem)){
+		if(&clock_pointer->frame_elem == list_tail(&thread_current()->frame_table)){
 			clock_pointer = list_head(&thread_current()->frame_table);
 		}
 		clock_pointer = list_next(&clock_pointer->frame_elem);
 	}
 
-	if(is_tail(&clock_pointer->frame_elem)){
+	if(&clock_pointer->frame_elem == list_tail(&thread_current()->frame_table)){
 		clock_pointer = list_head(&thread_current()->frame_table);
 		return list_entry(list_tail(&thread_current()->frame_table), struct spte, frame_elem) ;
 	} else {
