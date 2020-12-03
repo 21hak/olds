@@ -1,6 +1,7 @@
 #! /bin/sh
 
 # Path to GDB macros file.  Customize for your site.
+# GDBMACROS=$CSED312_PATH/src/misc/gdb-macros
 GDBMACROS=pintos/src/misc/gdb-macros
 
 # Choose correct GDB.
