@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "vm/frame.h"
+#include "vm/mmap.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -109,6 +110,7 @@ struct thread
 
     struct list spt;
     struct frame_table_entry* clock_pointer;
+    struct list mmap_file_list;
 
 #ifdef USERPROG
     /* Shared between userprog/process.c and userprog/syscall.c. */

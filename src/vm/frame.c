@@ -86,7 +86,7 @@ struct frame_table_entry* select_victim() {
 	}
 	else {
 		clock_pointer = list_entry(list_next(&clock_pointer->frame_elem), struct frame_table_entry, frame_elem);
-		return list_entry(list_prev(&frame_table), struct frame_table_entry, frame_elem);
+		return list_entry(list_prev(&clock_pointer->frame_elem), struct frame_table_entry, frame_elem);
 	}
 
 }

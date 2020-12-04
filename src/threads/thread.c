@@ -651,6 +651,7 @@ init_thread(struct thread *t, const char *name, int priority)
         update_priority(t, NULL);
     }
     list_init(&t->spt);
+    list_init(&t->mmap_file_list);
 
 #ifdef USERPROG
     t->pcb = NULL;
