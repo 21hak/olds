@@ -157,6 +157,7 @@ page_fault(struct intr_frame *f)
 
     /* If page fault occurs in user mode, terminates the current
      process. */
+    
     bool is_valid = true;
     if (user){
       struct spte* page = find_page(fault_addr);
