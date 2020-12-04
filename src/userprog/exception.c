@@ -1,10 +1,16 @@
 #include "userprog/exception.h"
 #include <inttypes.h>
 #include <stdio.h>
+#include <string.h>
 #include "userprog/gdt.h"
 #include "userprog/syscall.h"
+#include "userprog/process.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/palloc.h"
+#include "vm/frame.h"
+#include "vm/page.h"
+
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -150,16 +156,83 @@ page_fault(struct intr_frame *f)
 
     /* If page fault occurs in user mode, terminates the current
      process. */
-    if (user)
-        syscall_exit(-1);
+    bool is_valid = true;
+    if (user){
+      struct spte* page = find_page(fault_addr);
+
+      if(page->related_file!=NULL){
+        uint8_t* frame = allocate_frame(PAL_USER);
+        if(frame == NULL)
+          is_valid = false;
+        file_seek(page->related_file, page->offset);
+        if(file_read(page->related_file, frame, page->read_bytes) != (int)page->read_bytes){
+          deallocate_frame(frame);
+          is_valid = false;
+        } 
+        else {
+          memset(frame + page->read_bytes, 0, page->zero_bytes);
+        }
+
+        if(is_valid){
+          if(!install_page(page->page_number, frame, page->writable)){
+            deallocate_frame(frame);
+            is_valid = false;
+          } else {
+            page->frame_number = frame;
+          }
+        }
+      }
+      else {
+        uint8_t* frame = allocate_frame(PAL_USER);
+        if(frame == NULL)
+          is_valid = false;
+        // swap
+        if(is_valid){
+          if(!install_page(page->page_number, frame, page->writable)){
+            deallocate_frame(frame);
+            is_valid = false;
+          } else {
+            page->frame_number = frame;
+            swap_read(page->page_number, frame);
+          }
+        }
+      }
+
+    }
+        
 
     /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-    printf("Page fault at %p: %s error %s page in %s context.\n",
+    if(!is_valid){
+      printf("Page fault at %p: %s error %s page in %s context.\n",
            fault_addr,
            not_present ? "not present" : "rights violation",
            write ? "writing" : "reading",
            user ? "user" : "kernel");
-    kill(f);
+      kill(f);    
+    }
+    
 }
+
+ // /* removed for demand paging*/
+        // /* Get a page of memory. */
+        // uint8_t *kpage = allocate_frame(PAL_USER);
+        // if (kpage == NULL)
+        //     return false;
+
+        // /* Load this page. */
+        // if (file_read(file, kpage, page_read_bytes) != (int)page_read_bytes)
+        // {
+        //     deallocate_frame(kpage);
+        //     return false;
+        // }
+        // memset(kpage + page_read_bytes, 0, page_zero_bytes);
+
+        // /* Add the page to the process's address space. */
+        // if (!install_page(upage, kpage, writable))
+        // {
+        //     deallocate_frame(kpage);
+        //     return false;
+        // }
+        // /* !removed for demand paging*/

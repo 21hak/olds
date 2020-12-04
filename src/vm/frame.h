@@ -13,6 +13,11 @@ struct frame_table_entry {
 };
 
 void frame_table_init(void);
+struct thread* find_thread(int tid);
 uint8_t* allocate_frame(enum palloc_flags flag);
 void deallocate_frame(uint8_t *kpage);
+struct frame_table_entry* select_victim(void);
+uint8_t* get_page_from_frame(struct frame_table_entry* frame);
+void evict(void);
+
 #endif /* vm/frame.h */

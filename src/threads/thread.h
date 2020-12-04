@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "vm/frame.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -105,6 +106,9 @@ struct thread
     /* Owned by thread.c. */
     int nice;       /* Figure that indicates how nice to others. */
     int recent_cpu; /* Weighted average amount of received CPU time. */
+
+    struct list spt;
+    struct frame_table_entry* clock_pointer;
 
 #ifdef USERPROG
     /* Shared between userprog/process.c and userprog/syscall.c. */

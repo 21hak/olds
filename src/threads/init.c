@@ -38,7 +38,7 @@
 #include "filesys/fsutil.h"
 #endif
 #include "vm/frame.h"
-
+#include "vm/swap.h"
 /* Page directory with kernel mappings only. */
 uint32_t *init_page_dir;
 
@@ -100,6 +100,7 @@ int main(void)
     paging_init();
 
     frame_table_init();
+    swap_table_init();
 
 
     /* Segmentation. */
