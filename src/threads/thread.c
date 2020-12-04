@@ -33,7 +33,6 @@ static struct list sleep_list;
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
-struct list* pall_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -650,9 +649,6 @@ init_thread(struct thread *t, const char *name, int priority)
                             : thread_current()->recent_cpu;
         update_priority(t, NULL);
     }
-    list_init(&t->spt);
-    list_init(&t->mmap_file_list);
-
 #ifdef USERPROG
     t->pcb = NULL;
     list_init(&t->children);

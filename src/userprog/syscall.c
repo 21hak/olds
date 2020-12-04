@@ -13,7 +13,6 @@
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
-#include "vm/page.h"
 
 struct lock filesys_lock;
 
@@ -32,7 +31,7 @@ static int syscall_read(int, void *, unsigned);
 static int syscall_write(int, const void *, unsigned);
 static void syscall_seek(int, unsigned);
 static unsigned syscall_tell(int);
-static mapid_t syscall_mmap(int fd, void *addr);
+
 /* Registers the system call interrupt handler. */
 void syscall_init(void)
 {
@@ -45,7 +44,6 @@ void syscall_init(void)
 static void
 syscall_handler(struct intr_frame *f)
 {
-
     void *esp = f->esp;
     int syscall_num;
 
@@ -120,6 +118,7 @@ syscall_handler(struct intr_frame *f)
     case SYS_OPEN:
     {
         char *file;
+
         check_vaddr(esp + sizeof(uintptr_t));
         check_vaddr(esp + 2 * sizeof(uintptr_t) - 1);
         file = *(char **)(esp + sizeof(uintptr_t));
@@ -202,24 +201,6 @@ syscall_handler(struct intr_frame *f)
 
         syscall_close(fd);
         break;
-    }
-    case SYS_MMAP:
-    {
-        int fd;
-        void* addr;
-
-        check_vaddr(esp + sizeof(uintptr_t));
-        check_vaddr(esp + 3 * sizeof(uintptr_t) - 1);
-        fd = *(int *)(esp + sizeof(uintptr_t));
-        addr = *(void **)(esp + 2 * sizeof(uintptr_t));;
-        f->eax = syscall_mmap(fd, addr);
-        break;
-
-
-    }
-    case SYS_MUNMAP:
-    {
-
     }
     default:
         syscall_exit(-1);
@@ -467,77 +448,4 @@ void syscall_close(int fd)
     list_remove(&fde->fdtelem);
     palloc_free_page(fde);
     lock_release(&filesys_lock);
-}
-
-static mapid_t syscall_mmap(int fd, void *addr){
-    if(fd == 0 || fd == 1 || fd > 127 )
-        return -1;
-    // upage is muliple of PGSIZE
-    if(!addr || !is_user_vaddr(addr) ||
-        !pagedir_get_page(thread_get_pagedir(), addr))
-        return -1;
-
-    lock_acquire(&filesys_lock);
-
-    struct file_descriptor_entry *fde = process_get_fde(fd);
-    if(fde==NULL){
-        lock_release(&filesys_lock);
-        return -1;
-    }
-
-    int page_num;
-    int read_bytes = file_length(fde->file);
-    int ofs = 0;
-    if(read_bytes==0){
-        lock_release(&filesys_lock);
-        return -1;
-        // syscall_exit(-1);
-    }
-
-    if(read_bytes % PGSIZE == 0){
-        page_num = read_bytes / PGSIZE;
-    }
-    else{
-        page_num = read_bytes / PGSIZE + 1;
-    }
-    for(int i = 0; i < page_num; i++){
-        if(find_page((uint8_t*)addr + i * PGSIZE)!=NULL){
-            lock_release(&filesys_lock);
-            return -1;
-        }
-    } 
-    for(int i=0; i<page_num; i++){
-        int page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
-        int page_zero_bytes = PGSIZE - page_read_bytes;
-
-        struct spte* page = malloc(sizeof(struct spte));
-        if(page==NULL){
-            // munmap
-            lock_release(&filesys_lock);
-            return -1;
-        }
-        page->related_file = fde->file;
-        page->offset = ofs;
-        page->read_bytes = page_read_bytes;
-        page->zero_bytes = page_zero_bytes;
-        page->writable = true;
-        page->page_number = addr;
-        list_push_back(&thread_current()->spt, &page->spt_elem);
-        
-        read_bytes -= page_read_bytes;
-        addr += PGSIZE;
-        ofs += PGSIZE;
-
-    }
-
-    int mid = add_mmap_file(fde->file);
-    if(mid==-1){
-        // munmap
-        lock_release(&filesys_lock);
-        return -1;
-    }
-
-    lock_release(&filesys_lock);
-    return mid;
-    // return 1;
 }
