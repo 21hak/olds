@@ -160,6 +160,7 @@ page_fault(struct intr_frame *f)
     // if(is_user_vaddr(fault_addr)&&fault_addr>0x08048000){
     //   printf("else %p\n", fault_addr);
     // }
+  
     if (is_user_vaddr(fault_addr)&&fault_addr>0x08048000 && not_present){
       struct spte* page = find_page(fault_addr);
       if(page->related_file!=NULL){
@@ -200,12 +201,13 @@ page_fault(struct intr_frame *f)
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
     if(!is_valid){
-      printf("Page fault at %p: %s error %s page in %s context.\n",
-           fault_addr,
-           not_present ? "not present" : "rights violation",
-           write ? "writing" : "reading",
-           user ? "user" : "kernel");
-      kill(f);  
+      syscall_exit(-1);
+      // printf("Page fault at %p: %s error %s page in %s context.\n",
+      //      fault_addr,
+      //      not_present ? "not present" : "rights violation",
+      //      write ? "writing" : "reading",
+      //      user ? "user" : "kernel");
+      // kill(f);  
     }
     
 }

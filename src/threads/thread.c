@@ -18,6 +18,7 @@
 #include "devices/timer.h"
 #include "vm/frame.h"
 #include "vm/page.h"
+#include "vm/mmap.h"
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -653,6 +654,7 @@ init_thread(struct thread *t, const char *name, int priority)
     }
 
     list_init(&t->spt);
+    list_init(&t->mmap_file_list);
 #ifdef USERPROG
     t->pcb = NULL;
     list_init(&t->children);

@@ -14,6 +14,8 @@
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
 #include "vm/page.h"
+#include "vm/frame.h"
+#include "vm/mmap.h"
 
 struct lock filesys_lock;
 
@@ -32,6 +34,7 @@ static int syscall_read(int, void *, unsigned);
 static int syscall_write(int, const void *, unsigned);
 static void syscall_seek(int, unsigned);
 static unsigned syscall_tell(int);
+static int syscall_mmap(int fd, void *addr);
 
 /* Registers the system call interrupt handler. */
 void syscall_init(void)
@@ -201,6 +204,27 @@ syscall_handler(struct intr_frame *f)
         fd = *(int *)(esp + sizeof(uintptr_t));
 
         syscall_close(fd);
+        break;
+    }
+    case SYS_MMAP:
+    {
+        int fd;
+        void* addr;
+
+        check_vaddr(esp + sizeof(uintptr_t));
+        check_vaddr(esp + 3 * sizeof(uintptr_t) - 1);
+        fd = *(int *)(esp + sizeof(uintptr_t));
+        addr = *(void **)(esp + 2 * sizeof(uintptr_t));
+        f->eax = syscall_mmap(fd, addr);
+        break;
+    }
+    case SYS_MUNMAP:
+    {
+        int mapid;
+        check_vaddr(esp + sizeof(uintptr_t));
+        check_vaddr(esp + 2 * sizeof(uintptr_t) - 1);
+        mapid = *(int *)(esp + sizeof(uintptr_t));
+        syscall_munmap(mapid);
         break;
     }
     default:
@@ -460,4 +484,107 @@ void syscall_close(int fd)
     list_remove(&fde->fdtelem);
     palloc_free_page(fde);
     lock_release(&filesys_lock);
+}
+
+static int syscall_mmap(int fd, void *addr){
+    if(fd == 0 || fd == 1 || fd > 127 )
+        return -1;
+    if((int)addr % PGSIZE !=0)
+        return -1;
+    // upage is muliple of PGSIZE
+    if(!addr || !is_user_vaddr(addr))
+        return -1;
+    lock_acquire(&filesys_lock);
+
+    struct file_descriptor_entry *fde = process_get_fde(fd);
+    if(fde==NULL){
+        lock_release(&filesys_lock);
+        return -1;
+    }
+    int page_num;
+    int read_bytes = file_length(fde->file);
+    int ofs = 0;
+    if(read_bytes==0){
+        lock_release(&filesys_lock);
+        return -1;
+    }
+    if(read_bytes % PGSIZE == 0){
+        page_num = read_bytes / PGSIZE;
+    }
+    else{
+        page_num = read_bytes / PGSIZE + 1;
+    }
+
+    for(int i = 0; i < page_num; i++){
+        if(find_page((uint8_t*)addr + i * PGSIZE)!=NULL){
+            lock_release(&filesys_lock);
+            return -1;
+        }
+    } 
+    struct spte* start_page;
+    for(int i=0; i < page_num; i++){
+        int page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+        int page_zero_bytes = PGSIZE - page_read_bytes;
+
+        struct spte* page = malloc(sizeof(struct spte));
+        if(page==NULL){
+            // munmap
+            lock_release(&filesys_lock);
+            return -1;
+        }
+        if(i==0){
+            start_page = page;
+        }
+        page->related_file = file_reopen(fde->file);
+        page->offset = ofs;
+        page->read_bytes = page_read_bytes;
+        page->zero_bytes = page_zero_bytes;
+        page->writable = true;
+        page->page_number = addr;
+        list_push_back(&thread_current()->spt, &page->spt_elem);
+
+        read_bytes -= page_read_bytes;
+        addr += PGSIZE;
+        ofs += PGSIZE;
+    }
+    int mapid = add_mmap_file(start_page);
+    if(mapid==-1){
+        // munmap
+        lock_release(&filesys_lock);
+        return -1;
+    }
+    lock_release(&filesys_lock);
+    return mapid;
+} 
+
+void syscall_munmap(mapid_t mapid){
+    struct list_elem* e;
+    struct thread* cur = thread_current();
+    for(e = list_begin(&cur->mmap_file_list); e != list_end(&cur->mmap_file_list); e = list_next(e)){
+        struct mmap_file* mmap_file = list_entry(e, struct mmap_file, mmap_elem);
+        if(mmap_file->map_id == mapid){
+            struct spte* cur_stpe = mmap_file->spte;
+            struct spte* next_stpe;
+            for(int i=0; i < mmap_file->page_num; i++){
+                file_seek(cur_stpe->related_file, cur_stpe->offset);
+                if(&cur_stpe->spt_elem != list_tail(&cur->spt)){
+                    next_stpe = list_entry(list_next(&cur_stpe->spt_elem), struct spte, spt_elem);
+                }
+
+                if(pagedir_is_dirty(cur->pagedir, cur_stpe->page_number)){
+                    file_write(cur_stpe->related_file, cur_stpe->frame_number, cur_stpe->read_bytes);
+                // dirty        
+                }
+                list_remove(&cur_stpe->spt_elem);
+                pagedir_clear_page(cur->pagedir, cur_stpe->page_number);
+                // printf("offset: %d i: %d frame: %p\n ",cur_stpe->offset, i, cur_stpe->frame_number);
+                deallocate_frame(cur_stpe->frame_number);
+                free(cur_stpe);
+                cur_stpe = next_stpe;
+                // cur_stpe = list_remove(&cur_stpe->spt_elem);
+            }
+            list_remove(&mmap_file->mmap_elem);
+            // free(mmap_file);
+        }
+    }
 }

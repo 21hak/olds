@@ -22,10 +22,11 @@ void deallocate_frame(uint8_t *kpage){
 		struct frame_table_entry *target = list_entry (e, struct frame_table_entry, frame_elem);
 		if(target->frame_number == kpage){
 			list_remove(e);
+			palloc_free_page(kpage);
 			break;		
 		}
 	}
-	palloc_free_page(kpage);
+	// palloc_free_page(kpage);
 }
 
 
