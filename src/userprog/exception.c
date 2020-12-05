@@ -5,6 +5,9 @@
 #include "userprog/syscall.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "vm/frame.h"
+#include "vm/page.h"
+#include "threads/vaddr.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -150,16 +153,59 @@ page_fault(struct intr_frame *f)
 
     /* If page fault occurs in user mode, terminates the current
      process. */
-    if (user)
-        syscall_exit(-1);
+    bool is_valid = false;
+    // if(user){
+    //   printf("user %p\n", fault_addr);
+    // }
+    // if(is_user_vaddr(fault_addr)&&fault_addr>0x08048000){
+    //   printf("else %p\n", fault_addr);
+    // }
+    if (is_user_vaddr(fault_addr)&&fault_addr>0x08048000 && not_present){
+      struct spte* page = find_page(fault_addr);
+      if(page->related_file!=NULL){
+        uint8_t* frame = allocate_frame(PAL_USER);
+        if(frame == NULL){
+          is_valid = false;
+        }
+        file_seek(page->related_file, page->offset);
+        if(page->read_bytes==0){
+          is_valid = false;
+        }
+        if(file_read(page->related_file, frame, page->read_bytes) != (int)page->read_bytes){
+          deallocate_frame(frame);
+          is_valid = false;
+
+        } 
+        else {
+          memset(frame + page->read_bytes, 0, page->zero_bytes);
+          is_valid = true;
+        }
+
+        if(is_valid){
+          if(!install_page(page->page_number, frame, page->writable)){
+            deallocate_frame(frame);
+            is_valid = false;
+          } else {
+            page->frame_number = frame;
+          }
+        }
+
+      }
+      else{
+        // swap
+      }
+    }
 
     /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-    printf("Page fault at %p: %s error %s page in %s context.\n",
+    if(!is_valid){
+      printf("Page fault at %p: %s error %s page in %s context.\n",
            fault_addr,
            not_present ? "not present" : "rights violation",
            write ? "writing" : "reading",
            user ? "user" : "kernel");
-    kill(f);
+      kill(f);  
+    }
+    
 }

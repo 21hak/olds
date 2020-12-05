@@ -105,6 +105,7 @@ struct thread
     /* Owned by thread.c. */
     int nice;       /* Figure that indicates how nice to others. */
     int recent_cpu; /* Weighted average amount of received CPU time. */
+    struct list spt;
 
 #ifdef USERPROG
     /* Shared between userprog/process.c and userprog/syscall.c. */

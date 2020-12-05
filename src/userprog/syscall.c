@@ -13,6 +13,7 @@
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
+#include "vm/page.h"
 
 struct lock filesys_lock;
 
@@ -352,12 +353,24 @@ static int syscall_filesize(int fd)
 /* Handles read() system call. */
 static int syscall_read(int fd, void *buffer, unsigned size)
 {
+
     struct file_descriptor_entry *fde;
     int bytes_read, i;
+    for (i = 0; i < size; i++){
+        if(buffer+i==NULL||!is_user_vaddr(buffer+i)){
+            syscall_exit(-1);
+        }
+        if(find_page(buffer+i)==NULL){
+            syscall_exit(-1);
+        }else{
+            if(!find_page(buffer+i)->writable){
+                syscall_exit(-1);
+            }
+        }
 
-    for (i = 0; i < size; i++)
-        check_vaddr(buffer + i);
-
+        
+    }
+    
     if (fd == 0)
     {
         unsigned i;
@@ -375,7 +388,6 @@ static int syscall_read(int fd, void *buffer, unsigned size)
     lock_acquire(&filesys_lock);
     bytes_read = (int)file_read(fde->file, buffer, (off_t)size);
     lock_release(&filesys_lock);
-
     return bytes_read;
 }
 
