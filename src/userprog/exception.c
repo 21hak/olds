@@ -163,38 +163,63 @@ page_fault(struct intr_frame *f)
   
     if (is_user_vaddr(fault_addr)&&fault_addr>0x08048000 && not_present){
       struct spte* page = find_page(fault_addr);
-      if(page->related_file!=NULL){
-        uint8_t* frame = allocate_frame(PAL_USER);
-        if(frame == NULL){
-          is_valid = false;
-        }
-        file_seek(page->related_file, page->offset);
-        if(page->read_bytes==0){
-          is_valid = false;
-        }
-        if(file_read(page->related_file, frame, page->read_bytes) != (int)page->read_bytes){
-          deallocate_frame(frame);
-          is_valid = false;
-
-        } 
-        else {
-          memset(frame + page->read_bytes, 0, page->zero_bytes);
-          is_valid = true;
-        }
-
-        if(is_valid){
-          if(!install_page(page->page_number, frame, page->writable)){
-            deallocate_frame(frame);
+      if(page){
+        if(page->related_file!=NULL){
+          struct frame_table_entry* frame = allocate_frame(PAL_USER);
+          if(frame == NULL){
             is_valid = false;
-          } else {
-            page->frame_number = frame;
+          }
+          file_seek(page->related_file, page->offset);
+          // if(page->read_bytes==0){
+          //   printf("readbytes\n");
+          //   is_valid = false;
+          // }
+          if(file_read(page->related_file, frame->frame_number, page->read_bytes) != (int)page->read_bytes){
+            // deallocate_frame(frame->frame_number);
+            is_valid = false;
+
+          } 
+          else {
+
+            memset(frame->frame_number + page->read_bytes, 0, page->zero_bytes);
+            is_valid = true;
+          }
+
+          if(is_valid){
+            if(!install_page(page->page_number, frame->frame_number, page->writable)){
+              is_valid = false;
+            } else {
+
+              frame->mapped_page = page;
+              page->frame_number = frame->frame_number;
+            }
+          } else{
+            deallocate_frame(frame->frame_number);
           }
         }
-
+        else {
+          struct frame_table_entry* frame = allocate_frame(PAL_USER);
+          if(frame == NULL){
+            is_valid = false;
+          } else{
+            is_valid = true;
+          }
+          if(is_valid){
+            if(!install_page(page->page_number, frame->frame_number, page->writable)){
+              deallocate_frame(frame->frame_number);
+              is_valid = false;
+            } else {
+              page->frame_number = frame->frame_number;
+              frame->mapped_page = page;
+              swap_read(page->page_number, page->frame_number);
+            }
+          }
+        }
+      } 
+      else {
+        // stack growth
       }
-      else{
-        // swap
-      }
+      
     }
 
     /* To implement virtual memory, delete the rest of the function

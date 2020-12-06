@@ -535,6 +535,7 @@ static int syscall_mmap(int fd, void *addr){
         if(i==0){
             start_page = page;
         }
+        page->thread_id = thread_tid();
         page->related_file = file_reopen(fde->file);
         page->offset = ofs;
         page->read_bytes = page_read_bytes;

@@ -7,8 +7,10 @@
 
 
 struct spte {
+  int type;
   uint8_t* page_number;
   uint8_t* frame_number;
+  int thread_id;
   struct file* related_file;
   int offset;
   int read_bytes;

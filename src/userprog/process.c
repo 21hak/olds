@@ -530,6 +530,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
         struct spte* page = malloc(sizeof(struct spte));
         if(page==NULL)
             return false;
+        page->thread_id = thread_tid();
         page->related_file = file;
         page->offset = ofs;
         page->read_bytes = page_read_bytes;
@@ -575,28 +576,30 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack(void **esp)
 {
-    uint8_t *kpage;
+    struct frame_table_entry* frame;
     bool success = false;
 
-    kpage = allocate_frame(PAL_USER | PAL_ZERO);
-    if (kpage != NULL)
+    frame = allocate_frame(PAL_USER | PAL_ZERO);
+    if (frame != NULL)
     {
-        success = install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
+        success = install_page(((uint8_t *)PHYS_BASE) - PGSIZE, frame->frame_number, true);
         if (success){
             struct spte* page = malloc(sizeof(struct spte));
+            frame->mapped_page = page;
             if(page==NULL)
                 return false;
+            page->thread_id = thread_tid();
             page->offset = 0;
             page->read_bytes = 0;
             page->zero_bytes = 0;
             page->writable = true;
             page->page_number = ((uint8_t *)PHYS_BASE) - PGSIZE;
-            page->frame_number = kpage;
+            page->frame_number = frame->frame_number;
             list_push_back(&thread_current()->spt, &page->spt_elem);
             *esp = PHYS_BASE;
         }
         else
-            deallocate_frame(kpage);
+            deallocate_frame(frame->frame_number);
     }
     return success;
 }

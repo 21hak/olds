@@ -107,7 +107,8 @@ struct thread
     int recent_cpu; /* Weighted average amount of received CPU time. */
     struct list spt;
     struct list mmap_file_list;
-
+    struct frame_table_entry* clock_pointer;
+    
 #ifdef USERPROG
     /* Shared between userprog/process.c and userprog/syscall.c. */
     uint32_t *pagedir;         /* Page directory. */
