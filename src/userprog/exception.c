@@ -8,9 +8,11 @@
 #include "vm/frame.h"
 #include "vm/page.h"
 #include "threads/vaddr.h"
+#include "threads/synch.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
+extern frame_table_lock;
 
 static void kill(struct intr_frame *);
 static void page_fault(struct intr_frame *);
@@ -189,9 +191,13 @@ page_fault(struct intr_frame *f)
             if(!install_page(page->page_number, frame->frame_number, page->writable)){
               is_valid = false;
             } else {
-
+              if(!lock_held_by_current_thread(&frame_table_lock)){
+                lock_acquire(&frame_table_lock);  
+              }
               frame->mapped_page = page;
               page->frame_number = frame->frame_number;
+              if(lock_held_by_current_thread(&frame_table_lock))
+                lock_release(&frame_table_lock);
             }
           } else{
             deallocate_frame(frame->frame_number);
@@ -209,12 +215,18 @@ page_fault(struct intr_frame *f)
               deallocate_frame(frame->frame_number);
               is_valid = false;
             } else {
+              if(!lock_held_by_current_thread(&frame_table_lock)){
+                lock_acquire(&frame_table_lock);  
+              }
               page->frame_number = frame->frame_number;
               frame->mapped_page = page;
+              if(lock_held_by_current_thread(&frame_table_lock))
+                lock_release(&frame_table_lock);
               swap_read(page->page_number, page->frame_number);
             }
           }
         }
+
       } 
       else {
         // stack growth

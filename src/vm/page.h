@@ -20,4 +20,5 @@ struct spte {
 };
 
 struct spte* find_page(uint8_t* number);
+void clear_spt();
 #endif /* vm/page.h */

@@ -194,7 +194,9 @@ void process_exit(void)
          directory before destroying the process's page
          directory, or our active page directory will be one
          that's been freed (and cleared). */
+        
         clear_mmap_file_list();
+        clear_spt();
         thread_set_pagedir(NULL);
         pagedir_activate(NULL);
         pagedir_destroy(pd);
