@@ -108,6 +108,7 @@ struct thread
     struct list spt;
     struct list mmap_file_list;
     struct frame_table_entry* clock_pointer;
+    uint8_t *esp;
     
 #ifdef USERPROG
     /* Shared between userprog/process.c and userprog/syscall.c. */

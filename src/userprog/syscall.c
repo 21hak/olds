@@ -54,6 +54,7 @@ syscall_handler(struct intr_frame *f)
     check_vaddr(esp);
     check_vaddr(esp + sizeof(uintptr_t) - 1);
     syscall_num = *(int *)esp;
+    thread_current()->esp = esp;
 
     switch (syscall_num)
     {
@@ -337,8 +338,7 @@ static int syscall_open(const char *file)
     fde = palloc_get_page(0);
     if (!fde)
         return -1;
-
-    lock_acquire(&filesys_lock);
+        lock_acquire(&filesys_lock);
 
     new_file = filesys_open(file);
     if (!new_file)
@@ -352,7 +352,6 @@ static int syscall_open(const char *file)
     fde->fd = thread_get_next_fd();
     fde->file = new_file;
     list_push_back(thread_get_fdt(), &fde->fdtelem);
-
     lock_release(&filesys_lock);
 
     return fde->fd;

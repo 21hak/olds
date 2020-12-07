@@ -162,9 +162,11 @@ page_fault(struct intr_frame *f)
     // if(is_user_vaddr(fault_addr)&&fault_addr>0x08048000){
     //   printf("else %p\n", fault_addr);
     // }
-  
+    // struct spte* page2 = find_page_from_frame(fault_addr);
+    struct spte* page2 = find_page(fault_addr);
     if (is_user_vaddr(fault_addr)&&fault_addr>0x08048000 && not_present){
       struct spte* page = find_page(fault_addr);
+            
       if(page){
         if(page->related_file!=NULL){
           struct frame_table_entry* frame = allocate_frame(PAL_USER);
@@ -220,8 +222,9 @@ page_fault(struct intr_frame *f)
               }
               page->frame_number = frame->frame_number;
               frame->mapped_page = page;
-              if(lock_held_by_current_thread(&frame_table_lock))
+              if(lock_held_by_current_thread(&frame_table_lock)){
                 lock_release(&frame_table_lock);
+              }
               swap_read(page->page_number, page->frame_number);
             }
           }
@@ -229,7 +232,52 @@ page_fault(struct intr_frame *f)
 
       } 
       else {
+
+
         // stack growth
+        uint8_t * esp;
+        if(user){
+          esp = f->esp;
+        }
+        else {
+          esp = thread_current()->esp;
+        }
+        uint8_t *ptr = esp;
+        
+
+        if((esp - 32) <= (uint8_t *)fault_addr){
+          bool success = false;
+          struct frame_table_entry * frame;
+
+
+          frame = allocate_frame(PAL_USER | PAL_ZERO);
+          if (frame != NULL)
+          {
+              if((int)esp % PGSIZE==0)
+                ptr = esp - 1;
+              success = install_page(pg_round_down(ptr), frame->frame_number, true);
+              if (success){
+                    
+                  struct spte* page = malloc(sizeof(struct spte));
+                  frame->mapped_page = page;
+
+                  if(page==NULL){
+                  }
+                      
+                  page->thread_id = thread_tid();
+                  page->offset = 0;
+                  page->read_bytes = 0;
+                  page->zero_bytes = 0;
+                  page->writable = true;
+                  page->page_number = pg_round_down(ptr);
+                  page->frame_number = frame->frame_number;
+                  list_push_back(&thread_current()->spt, &page->spt_elem);
+                  is_valid=true;
+              }
+              else
+                  deallocate_frame(frame->frame_number);
+          }
+        }
       }
       
     }
@@ -238,13 +286,15 @@ page_fault(struct intr_frame *f)
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
     if(!is_valid){
-      syscall_exit(-1);
-      // printf("Page fault at %p: %s error %s page in %s context.\n",
-      //      fault_addr,
-      //      not_present ? "not present" : "rights violation",
-      //      write ? "writing" : "reading",
-      //      user ? "user" : "kernel");
-      // kill(f);  
+      // printf("aa %p %p\n", fault_addr, page2);
+      // printf("bb %p \n",find_page_from_spts(fault_addr));
+      // syscall_exit(-1);
+      printf("Page fault at %p: %s error %s page in %s context.\n",
+           fault_addr,
+           not_present ? "not present" : "rights violation",
+           write ? "writing" : "reading",
+           user ? "user" : "kernel");
+      kill(f);  
     }
     
 }

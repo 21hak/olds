@@ -23,7 +23,8 @@ void swap_write(uint8_t* page_number, uint8_t* frame_number){
 	// 	lock_acquire(&swap_table);	
 	// }
 	int pos = 0;
-	struct spte* page = find_page(page_number);
+	// struct spte* page = find_page(page_number);
+	struct spte* page = find_page_from_frame(page_number);
 	// struct spte* page = find_page_from_frame(page_number);
 	
 
@@ -35,7 +36,7 @@ void swap_write(uint8_t* page_number, uint8_t* frame_number){
 			break;
 		}
 	}
-	
+	printf("swap %p\n", page_number);
 	for(int i=0; i<8; i++){
 		int offset = 512 * i;
 		swap_table[pos+i].page_number = page_number;
@@ -67,7 +68,7 @@ void swap_read(uint8_t* page_number, uint8_t* frame_number){
 	for(int i=0; i<8; i++){
 		int offset = 512 * i;
 		swap_table[pos+i].is_avail = true;
-		block_read(block_get_role(BLOCK_SWAP), pos+i, page_number+offset);
+		block_read(block_get_role(BLOCK_SWAP), pos+i, page_number +offset);
 	}
 	if(lock_held_by_current_thread(&frame_table_lock))
 		lock_release(&frame_table_lock);

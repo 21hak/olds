@@ -178,9 +178,11 @@ void process_exit(void)
         palloc_free_page(pcb);
 
     /* Close the running file. */
-    lock_acquire(filesys_lock);
+    // if(!lock_held_by_current_thread(&filesys_lock))
+        lock_acquire(filesys_lock);
     file_close(thread_get_running_file());
-    lock_release(filesys_lock);
+    // if(lock_held_by_current_thread(&filesys_lock))
+      lock_release(filesys_lock);
 
     /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -197,6 +199,7 @@ void process_exit(void)
         
         clear_mmap_file_list();
         clear_spt();
+        // clear_swap_table();
         thread_set_pagedir(NULL);
         pagedir_activate(NULL);
         pagedir_destroy(pd);
@@ -541,6 +544,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
         page->page_number = upage;
         list_push_back(&thread_current()->spt, &page->spt_elem);
 
+
         // /* Get a page of memory. */
         // uint8_t *kpage = allocate_frame(PAL_USER);
         // if (kpage == NULL)
@@ -599,6 +603,8 @@ setup_stack(void **esp)
             page->frame_number = frame->frame_number;
             list_push_back(&thread_current()->spt, &page->spt_elem);
             *esp = PHYS_BASE;
+            
+
         }
         else
             deallocate_frame(frame->frame_number);
