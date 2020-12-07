@@ -196,10 +196,9 @@ void process_exit(void)
          directory before destroying the process's page
          directory, or our active page directory will be one
          that's been freed (and cleared). */
-        
         clear_mmap_file_list();
         clear_spt();
-        // clear_swap_table();
+        clear_swap_table();
         thread_set_pagedir(NULL);
         pagedir_activate(NULL);
         pagedir_destroy(pd);
@@ -542,6 +541,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
         page->zero_bytes = page_zero_bytes;
         page->writable = writable;
         page->page_number = upage;
+        page->is_pinned = false;
         list_push_back(&thread_current()->spt, &page->spt_elem);
 
 
@@ -601,6 +601,8 @@ setup_stack(void **esp)
             page->writable = true;
             page->page_number = ((uint8_t *)PHYS_BASE) - PGSIZE;
             page->frame_number = frame->frame_number;
+                    page->is_pinned = false;
+
             list_push_back(&thread_current()->spt, &page->spt_elem);
             *esp = PHYS_BASE;
             

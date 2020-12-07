@@ -72,8 +72,8 @@ struct frame_table_entry* select_victim(){
 	struct thread* target;
 	struct frame_table_entry* frame;
 	struct list_elem* e;
-	// return list_entry(list_begin(&frame_table), struct frame_table_entry, frame_elem);
-	if(!lock_held_by_current_thread(&frame_table_lock)){
+/*	return list_entry(list_begin(&frame_table), struct frame_table_entry, frame_elem);
+*/	if(!lock_held_by_current_thread(&frame_table_lock)){
 		lock_acquire(&frame_table_lock);	
 	}
 	if(clock_pointer==NULL){
@@ -107,16 +107,10 @@ struct frame_table_entry* select_victim(){
 }
 
 void evict() {
-
 	struct frame_table_entry* victim = select_victim();
 	
-	// while(victim->mapped_page->is_pinned){
-	// 	victim = select_victim();	
-	// }
-
-
 	struct thread* thread = find_thread(victim->mapped_page->thread_id);
-	if(!is_swap(victim)){
+	if(is_swap(victim) == 0){
 		pagedir_clear_page(thread->pagedir, victim->mapped_page->page_number);
 		deallocate_frame(victim->frame_number);
 	}

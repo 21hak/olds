@@ -12,6 +12,6 @@ struct swap_sector {
 void swap_table_init(void);
 void swap_write(uint8_t* page_number, uint8_t* frame_number);
 void swap_read(uint8_t* page_number, uint8_t* frame_number);
-bool is_swap(struct frame_table_entry* frame);
+int is_swap(struct frame_table_entry* frame);
 
 #endif /* vm/swap.h */
