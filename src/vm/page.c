@@ -1,6 +1,12 @@
 #include "vm/page.h"
 #include "threads/vaddr.h"
 #include "threads/thread.h"
+#include "vm/frame.h"
+#include "threads/synch.h"
+
+extern frame_table_lock;
+extern frame_table;
+extern pall_list;
 
 struct spte* find_page(uint8_t* number){
 	struct list_elem* e;
@@ -12,7 +18,36 @@ struct spte* find_page(uint8_t* number){
 		}
 	}
 	return NULL;
+}
+
+struct spte* find_page_from_frame(uint8_t* number){
+	struct list_elem* e;
+	for(e = list_begin(&frame_table); e != list_end(&frame_table); e = list_next(e)){
+		struct frame_table_entry *target = list_entry(e, struct frame_table_entry, frame_elem);
+		if(target->mapped_page->page_number == pg_round_down(number)){
+			return target->mapped_page;		
+		}
+	}
+	return NULL;
 } 
+
+struct spte* find_page_from_spts(uint8_t* number){
+	struct list_elem* e;
+	struct list_elem* e2;
+	for(e = list_begin(pall_list); e != list_end(pall_list); e = list_next(e)){
+		struct thread* target = list_entry(e, struct thread, allelem);
+		for(e2 = list_begin(&target->spt); e2 != list_end(&target->spt); e2 = list_next(e2)){
+			struct spte *spte = list_entry (e2, struct spte, spt_elem);
+			if(spte->page_number == pg_round_down(number)){
+				return spte;		
+			}
+		}
+	}
+	return NULL;
+
+}
+
+
 
 void clear_spt(){
 	struct thread* cur= thread_current();

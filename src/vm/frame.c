@@ -107,8 +107,14 @@ struct frame_table_entry* select_victim(){
 }
 
 void evict() {
-	
+
 	struct frame_table_entry* victim = select_victim();
+	
+	// while(victim->mapped_page->is_pinned){
+	// 	victim = select_victim();	
+	// }
+
+
 	struct thread* thread = find_thread(victim->mapped_page->thread_id);
 	if(!is_swap(victim)){
 		pagedir_clear_page(thread->pagedir, victim->mapped_page->page_number);
