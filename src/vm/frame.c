@@ -24,6 +24,7 @@ struct frame_table_entry* allocate_frame(enum palloc_flags flag){
 		frame = malloc(sizeof(struct frame_table_entry));
 		frame->frame_number = kpage;
 		frame->accessed_bit = 1;
+
 		list_push_back(&frame_table, &frame->frame_elem);
 	}
 	else{
@@ -32,6 +33,7 @@ struct frame_table_entry* allocate_frame(enum palloc_flags flag){
 		frame = malloc(sizeof(struct frame_table_entry));
 		frame->frame_number = kpage;
 		frame->accessed_bit = 1;
+
 		list_push_back(&frame_table, &frame->frame_elem);
 	}
 	if(lock_held_by_current_thread(&frame_table_lock))
@@ -106,10 +108,12 @@ struct frame_table_entry* select_victim(){
 		lock_release(&frame_table_lock);
 }
 
+
+
 void evict() {
 	struct frame_table_entry* victim = select_victim();
-	
-	struct thread* thread = find_thread(victim->mapped_page->thread_id);
+	// printf("evcit:%d\n", victim->mapped_page->thread_id);
+	struct thread* thread = find_thread(victim->mapped_page->thread_id);	
 	if(is_swap(victim) == 0){
 		pagedir_clear_page(thread->pagedir, victim->mapped_page->page_number);
 		deallocate_frame(victim->frame_number);

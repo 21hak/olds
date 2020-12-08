@@ -2,6 +2,7 @@
 #include "devices/block.h"
 #include "vm/frame.h"
 #include "threads/synch.h"
+#include "devices/timer.h"
 
 extern frame_table_lock;
 extern frame_table;
@@ -25,8 +26,7 @@ void swap_write(uint8_t* page_number, uint8_t* frame_number){
 	int pos = 0;
 	struct spte* page = find_page_from_frame(page_number);
 	
-
-
+	
 	page->related_file = NULL;
 
 	for(;pos<8192; pos+=8){

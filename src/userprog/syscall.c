@@ -16,6 +16,7 @@
 #include "vm/page.h"
 #include "vm/frame.h"
 #include "vm/mmap.h"
+#include "devices/timer.h"
 
 struct lock filesys_lock;
 
@@ -299,8 +300,10 @@ static bool syscall_create(const char *file, unsigned initial_size)
     check_vaddr(file);
     for (i = 0; *(file + i); i++)
         check_vaddr(file + i + 1);
-
+    timer_sleep(50);
+    // if(!lock_held_by_current_thread(&filesys_lock))
     lock_acquire(&filesys_lock);
+    // printf("tid %p\n", thread_tid());
     success = filesys_create(file, (off_t)initial_size);
     lock_release(&filesys_lock);
 
@@ -339,6 +342,7 @@ static int syscall_open(const char *file)
     if (!fde)
         return -1;
         lock_acquire(&filesys_lock);
+    timer_sleep(50);
 
     new_file = filesys_open(file);
     if (!new_file)
