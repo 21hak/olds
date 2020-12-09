@@ -43,12 +43,15 @@ struct spte* find_page_from_spts(uint8_t* number){
 	struct list_elem* e2;
 	for(e = list_begin(pall_list); e != list_end(pall_list); e = list_next(e)){
 		struct thread* target = list_entry(e, struct thread, allelem);
+		lock_acquire(&target->spt_lock);	
 		for(e2 = list_begin(&target->spt); e2 != list_end(&target->spt); e2 = list_next(e2)){
 			struct spte *spte = list_entry (e2, struct spte, spt_elem);
 			if(spte->page_number == pg_round_down(number)){
+				lock_release(&target->spt_lock);
 				return spte;		
 			}
 		}
+		lock_release(&target->spt_lock);
 	}
 	return NULL;
 
