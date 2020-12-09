@@ -4,7 +4,7 @@
 #include "userprog/gdt.h"
 #include "userprog/syscall.h"
 #include "threads/interrupt.h"
-#include "threads/thread.h"p
+#include "threads/thread.h"
 #include "vm/frame.h"
 #include "vm/page.h"
 #include "threads/vaddr.h"
