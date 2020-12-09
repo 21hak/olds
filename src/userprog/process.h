@@ -39,7 +39,7 @@ void process_activate(void);
 bool install_page(void *upage, void *kpage, bool writable);
 
 struct process *process_get_child(pid_t);
-void process_remove_child(struct process *);
+struct list_elem* process_remove_child(struct process *);
 struct file_descriptor_entry *process_get_fde(int);
 
 #endif /* userprog/process.h */

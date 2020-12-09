@@ -169,8 +169,8 @@ void process_exit(void)
      close all of its files, and notify its parent of its termination.
      Finally, free its page if it is orphaned. */
     pcb->is_exited = true;
-    for (e = list_begin(children); e != list_end(children); e = list_next(e))
-        process_remove_child(list_entry(e, struct process, childelem));
+    for (e = list_begin(children); e != list_end(children); e = e)
+        e = process_remove_child(list_entry(e, struct process, childelem));
     for (i = 2; i < max_fd; i++)
         syscall_close(i);
     sema_up(&pcb->exit_sema);
@@ -239,16 +239,17 @@ struct process *process_get_child(pid_t pid)
 
 /* Removes CHILD from the current process's children list and
    reset its parent. If it is terminated, free its page. */
-void process_remove_child(struct process *child)
+struct list_elem* process_remove_child(struct process *child)
 {
     if (!child)
         return;
-
-    list_remove(&child->childelem);
+    struct list_elem * e;
+    e = list_remove(&child->childelem);
     child->parent = NULL;
 
     if (child->is_exited)
         palloc_free_page(child);
+    return e;
 }
 
 /* Returns the current process's file descriptor entry with fd FD. */

@@ -81,6 +81,7 @@ struct frame_table_entry* select_victim(){
 	struct thread* target;
 	struct frame_table_entry* frame;
 	struct list_elem* e;
+	return list_entry(list_begin(&frame_table), struct frame_table_entry, frame_elem);
 	if(clock_pointer==NULL){
 		clock_pointer = list_entry(list_begin(&frame_table), struct frame_table_entry, frame_elem);
 	}
