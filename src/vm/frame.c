@@ -4,6 +4,7 @@
 #include "vm/frame.h"
 #include "threads/synch.h"
 #include "devices/timer.h"
+#include "threads/interrupt.h"
 #include <stdlib.h>
 
 struct list frame_table;
@@ -15,6 +16,7 @@ void frame_table_init(){
 	list_init(&frame_table);
 	lock_init(&frame_table_lock);
 }
+
 
 struct frame_table_entry* allocate_frame(enum palloc_flags flag){
 	uint8_t *kpage = palloc_get_page(flag);
@@ -49,7 +51,8 @@ struct frame_table_entry* allocate_frame(enum palloc_flags flag){
 void deallocate_frame(uint8_t *kpage){
 		
 	struct list_elem* e;
-	lock_acquire(&frame_table_lock);	
+	lock_acquire(&frame_table_lock);
+	
 	for(e = list_begin(&frame_table); e != list_end(&frame_table); e = e){
 		struct frame_table_entry *target = list_entry (e, struct frame_table_entry, frame_elem);
 		if(target->frame_number == kpage){
@@ -65,14 +68,19 @@ void deallocate_frame(uint8_t *kpage){
 }
 
 struct thread* find_thread(int tid){
+	enum intr_level old_level;
+	old_level = intr_disable();
+
 	struct list_elem* e;
 	struct thread* thread;
 	for(e = list_begin(pall_list); e != list_end(pall_list); e = list_next(e)){
 		thread = list_entry(e, struct thread, allelem);
 		if(thread->tid == tid){
+			intr_set_level(old_level);
 			return thread;
 		}
 	}
+	intr_set_level(old_level);
 	return NULL;
 }
 
@@ -81,7 +89,7 @@ struct frame_table_entry* select_victim(){
 	struct thread* target;
 	struct frame_table_entry* frame;
 	struct list_elem* e;
-	return list_entry(list_begin(&frame_table), struct frame_table_entry, frame_elem);
+	// return list_entry(list_begin(&frame_table), struct frame_table_entry, frame_elem);
 	if(clock_pointer==NULL){
 		clock_pointer = list_entry(list_begin(&frame_table), struct frame_table_entry, frame_elem);
 	}
@@ -117,6 +125,9 @@ void evict() {
 	lock_acquire(&frame_table_lock);
 	// timer_sleep(50);
 	struct frame_table_entry* victim = select_victim();
+	// while(victim->is_pinned){
+	// 	victim = select_victim();
+	// }
 	lock_release(&frame_table_lock);
 
 	// while(victim->mapped_page->page_number>(uint8_t*)0x10000000)

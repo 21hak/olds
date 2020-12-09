@@ -202,21 +202,21 @@ page_fault(struct intr_frame *f)
 
                   if(page==NULL){
                   }
-                      
-                  page->thread_id = thread_tid();
-                  page->offset = 0;
-                  page->read_bytes = 0;
-                  page->zero_bytes = 0;
-                  page->writable = true;
-                  page->page_number = pg_round_down(ptr);
-                  page->frame_number = frame->frame_number;
-                  list_push_back(&thread_current()->spt, &page->spt_elem);
-                  is_valid=true;
-                   lock_acquire(&frame_table_lock); 
-                  list_push_back(&frame_table, &frame->frame_elem);
-                  lock_release(&frame_table_lock);
-                  frame->is_pinned=0;
-                 
+                  else{
+                     page->thread_id = thread_tid();
+                    page->offset = 0;
+                    page->read_bytes = 0;
+                    page->zero_bytes = 0;
+                    page->writable = true;
+                    page->page_number = pg_round_down(ptr);
+                    page->frame_number = frame->frame_number;
+                    list_push_back(&thread_current()->spt, &page->spt_elem);
+                    is_valid=true;
+                     lock_acquire(&frame_table_lock); 
+                    list_push_back(&frame_table, &frame->frame_elem);
+                    lock_release(&frame_table_lock);
+                    frame->is_pinned=0;
+                  }
               }
               else
                   deallocate_frame(frame->frame_number);
@@ -421,8 +421,6 @@ page_fault(struct intr_frame *f)
     if(!is_valid){
       // printf("aa %p %p\n", fault_addr, page2);
       // printf("bb %p \n",find_page_from_spts(fault_addr));
-      if(lock_held_by_current_thread(&frame_table_lock))
-        lock_release(&frame_table_lock);
       syscall_exit(-1);
       // printf("Page fault at %p: %s error %s page in %s context.\n",
       //      fault_addr,

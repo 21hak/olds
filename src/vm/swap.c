@@ -11,16 +11,18 @@ struct lock swap_table_lock;
 struct swap_sector swap_table[8192];
 
 void swap_table_init(){
+	lock_init(&swap_table_lock);
 	for(int i=0; i<8192; i++){
 		swap_table[i].is_avail = true;
 	}
 }
 
 void swap_write(uint8_t* page_number, uint8_t* frame_number){
-	// lock_acquire(&swap_table);	
+	
+	lock_acquire(&swap_table_lock);
 	int pos = 0;
 	struct spte* page = find_page_from_frame(page_number);
-	
+	// lock_acquire(&frame_table_lock);
 	
 	page->related_file = NULL;
 
@@ -36,12 +38,14 @@ void swap_write(uint8_t* page_number, uint8_t* frame_number){
 		swap_table[pos+i].thread_id = page->thread_id;
 		block_write(block_get_role(BLOCK_SWAP), pos + i, page_number + offset);
 	}
-	// lock_release(&swap_table_lock);
+	// lock_release(&frame_table_lock);
+	lock_release(&swap_table_lock);
 
 }
 
 
 void swap_read(uint8_t* page_number, uint8_t* frame_number){
+	lock_acquire(&swap_table_lock);
 	int pos = 0;
 	for(;pos<8192; pos+=8){
 		if(swap_table[pos].page_number == page_number){
@@ -55,6 +59,8 @@ void swap_read(uint8_t* page_number, uint8_t* frame_number){
 		swap_table[pos+i].is_avail = true;
 		block_read(block_get_role(BLOCK_SWAP), pos+i, page_number +offset);
 	}
+	lock_release(&swap_table_lock);
+
 }
 
 int is_swap(struct frame_table_entry* frame){
@@ -70,8 +76,10 @@ int is_swap(struct frame_table_entry* frame){
 }
 
 void clear_swap_table(){
+	lock_acquire(&swap_table_lock);
 	for(int i=0; i<8192; i++){
 		if(thread_tid()==swap_table[i].thread_id)
 			swap_table[i].is_avail = true;
 	}
+	lock_release(&swap_table_lock);
 }

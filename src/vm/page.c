@@ -3,6 +3,8 @@
 #include "threads/thread.h"
 #include "vm/frame.h"
 #include "threads/synch.h"
+#include "threads/interrupt.h"
+
 
 extern frame_table_lock;
 extern frame_table;
@@ -24,6 +26,10 @@ struct spte* find_page(uint8_t* number){
 	return NULL;
 }
 
+
+
+
+
 struct spte* find_page_from_frame(uint8_t* number){
 	lock_acquire(&frame_table_lock);	
 	struct list_elem* e;
@@ -36,11 +42,17 @@ struct spte* find_page_from_frame(uint8_t* number){
 	}
 	lock_release(&frame_table_lock);
 	return NULL;
-} 
+}
+
+
 
 struct spte* find_page_from_spts(uint8_t* number){
+	enum intr_level old_level;
+	old_level = intr_disable();
+
 	struct list_elem* e;
 	struct list_elem* e2;
+
 	for(e = list_begin(pall_list); e != list_end(pall_list); e = list_next(e)){
 		struct thread* target = list_entry(e, struct thread, allelem);
 		lock_acquire(&target->spt_lock);	
@@ -48,11 +60,13 @@ struct spte* find_page_from_spts(uint8_t* number){
 			struct spte *spte = list_entry (e2, struct spte, spt_elem);
 			if(spte->page_number == pg_round_down(number)){
 				lock_release(&target->spt_lock);
+				intr_set_level(old_level);
 				return spte;		
 			}
 		}
 		lock_release(&target->spt_lock);
 	}
+	intr_set_level(old_level);
 	return NULL;
 
 }

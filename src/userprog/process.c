@@ -20,6 +20,9 @@
 #include "threads/vaddr.h"
 #include "vm/frame.h"
 #include "vm/page.h"
+extern frame_table_lock;
+extern swap_table_lock;
+extern filesys_lock;
 
 static thread_func start_process NO_RETURN;
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
@@ -164,6 +167,7 @@ void process_exit(void)
     struct lock *filesys_lock = syscall_get_filesys_lock();
     uint32_t *pd;
     int max_fd = thread_get_next_fd(), i;
+    
 
     /* Set exit flag, remove all of the current process's exited children,
      close all of its files, and notify its parent of its termination.
@@ -199,6 +203,12 @@ void process_exit(void)
         clear_mmap_file_list();
         clear_spt();
         clear_swap_table();
+        if(lock_held_by_current_thread(&filesys_lock))
+            lock_release(&filesys_lock);
+        if(lock_held_by_current_thread(&frame_table_lock))
+            lock_release(&frame_table_lock);
+        if(lock_held_by_current_thread(&swap_table_lock))
+            lock_release(&swap_table_lock);
         thread_set_pagedir(NULL);
         pagedir_activate(NULL);
         pagedir_destroy(pd);
