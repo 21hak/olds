@@ -10,6 +10,7 @@ struct frame_table_entry {
 	struct list_elem frame_elem;
 	struct spte* mapped_page;
 	int accessed_bit;
+	int is_pinned;
 };
 
 void frame_table_init(void);

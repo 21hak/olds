@@ -541,7 +541,6 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
         page->zero_bytes = page_zero_bytes;
         page->writable = writable;
         page->page_number = upage;
-        page->is_pinned = false;
         list_push_back(&thread_current()->spt, &page->spt_elem);
 
 
@@ -586,6 +585,7 @@ setup_stack(void **esp)
     bool success = false;
 
     frame = allocate_frame(PAL_USER | PAL_ZERO);
+    frame->is_pinned=1;
     if (frame != NULL)
     {
         success = install_page(((uint8_t *)PHYS_BASE) - PGSIZE, frame->frame_number, true);
@@ -601,11 +601,10 @@ setup_stack(void **esp)
             page->writable = true;
             page->page_number = ((uint8_t *)PHYS_BASE) - PGSIZE;
             page->frame_number = frame->frame_number;
-                    page->is_pinned = false;
 
             list_push_back(&thread_current()->spt, &page->spt_elem);
             *esp = PHYS_BASE;
-            
+            frame->is_pinned=0;
 
         }
         else

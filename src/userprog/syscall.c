@@ -19,6 +19,7 @@
 #include "devices/timer.h"
 
 struct lock filesys_lock;
+extern frame_table_lock;
 
 static void syscall_handler(struct intr_frame *);
 
@@ -259,7 +260,8 @@ static void syscall_halt(void)
 void syscall_exit(int status)
 {
     struct process *pcb = thread_get_pcb();
-
+    if(lock_held_by_current_thread(&filesys_lock))
+        lock_release(&filesys_lock);
     pcb->exit_status = status;
     printf("%s: exit(%d)\n", thread_name(), status);
     thread_exit();
@@ -271,23 +273,26 @@ static pid_t syscall_exec(const char *cmd_line)
     pid_t pid;
     struct process *child;
     int i;
-
+    if(!lock_held_by_current_thread(&filesys_lock))
+        lock_acquire(&filesys_lock);
     check_vaddr(cmd_line);
     for (i = 0; *(cmd_line + i); i++)
         check_vaddr(cmd_line + i + 1);
+    if(lock_held_by_current_thread(&filesys_lock))
+        lock_release(&filesys_lock);
 
     pid = process_execute(cmd_line);
     child = process_get_child(pid);
-
+    
     if (!child || !child->is_loaded)
         return PID_ERROR;
-
     return pid;
 }
 
 /* Handles wait() system call. */
 static int syscall_wait(pid_t pid)
 {
+    
     return process_wait(pid);
 }
 
@@ -297,16 +302,14 @@ static bool syscall_create(const char *file, unsigned initial_size)
     bool success;
     int i;
 
+    if(!lock_held_by_current_thread(&filesys_lock))
+        lock_acquire(&filesys_lock);
     check_vaddr(file);
     for (i = 0; *(file + i); i++)
         check_vaddr(file + i + 1);
-    timer_sleep(50);
-    // if(!lock_held_by_current_thread(&filesys_lock))
-    lock_acquire(&filesys_lock);
-    // printf("tid %p\n", thread_tid());
     success = filesys_create(file, (off_t)initial_size);
-    lock_release(&filesys_lock);
-
+    if(lock_held_by_current_thread(&filesys_lock))
+        lock_release(&filesys_lock);
     return success;
 }
 
@@ -315,14 +318,16 @@ static bool syscall_remove(const char *file)
 {
     bool success;
     int i;
+    if(!lock_held_by_current_thread(&filesys_lock))
+        lock_acquire(&filesys_lock);
 
     check_vaddr(file);
     for (i = 0; *(file + i); i++)
         check_vaddr(file + i + 1);
 
-    lock_acquire(&filesys_lock);
     success = filesys_remove(file);
-    lock_release(&filesys_lock);
+     if(lock_held_by_current_thread(&filesys_lock))
+        lock_release(&filesys_lock);
 
     return success;
 }
@@ -333,22 +338,28 @@ static int syscall_open(const char *file)
     struct file_descriptor_entry *fde;
     struct file *new_file;
     int i;
+    
+    if(!lock_held_by_current_thread(&filesys_lock))
+        lock_acquire(&filesys_lock);
 
     check_vaddr(file);
     for (i = 0; *(file + i); i++)
         check_vaddr(file + i + 1);
 
     fde = palloc_get_page(0);
-    if (!fde)
+    if (!fde){
+        if(lock_held_by_current_thread(&filesys_lock))
+            lock_release(&filesys_lock);
         return -1;
-        lock_acquire(&filesys_lock);
-    timer_sleep(50);
-
+    }
+    
+    
     new_file = filesys_open(file);
     if (!new_file)
     {
         palloc_free_page(fde);
-        lock_release(&filesys_lock);
+        if(lock_held_by_current_thread(&filesys_lock))
+            lock_release(&filesys_lock);
 
         return -1;
     }
@@ -356,24 +367,30 @@ static int syscall_open(const char *file)
     fde->fd = thread_get_next_fd();
     fde->file = new_file;
     list_push_back(thread_get_fdt(), &fde->fdtelem);
-    lock_release(&filesys_lock);
-
+    if(lock_held_by_current_thread(&filesys_lock))
+      lock_release(&filesys_lock);
+    
     return fde->fd;
 }
 
 /* Handles filesize() system call. */
 static int syscall_filesize(int fd)
 {
+    if(!lock_held_by_current_thread(&filesys_lock))
+        lock_acquire(&filesys_lock);
     struct file_descriptor_entry *fde = process_get_fde(fd);
     int filesize;
 
-    if (!fde)
+    if (!fde){
+        if(lock_held_by_current_thread(&filesys_lock))
+            lock_release(&filesys_lock);
         return -1;
+    }
 
-    lock_acquire(&filesys_lock);
+    
     filesize = file_length(fde->file);
-    lock_release(&filesys_lock);
-
+    if(lock_held_by_current_thread(&filesys_lock))
+        lock_release(&filesys_lock);
     return filesize;
 }
 
@@ -383,6 +400,8 @@ static int syscall_read(int fd, void *buffer, unsigned size)
 
     struct file_descriptor_entry *fde;
     int bytes_read, i;
+    if(!lock_held_by_current_thread(&filesys_lock))
+        lock_acquire(&filesys_lock);
     for (i = 0; i < size; i++){
         if(buffer+i==NULL||!is_user_vaddr(buffer+i)){
             syscall_exit(-1);
@@ -397,7 +416,7 @@ static int syscall_read(int fd, void *buffer, unsigned size)
 
         
     }
-    
+     
     if (fd == 0)
     {
         unsigned i;
@@ -405,16 +424,22 @@ static int syscall_read(int fd, void *buffer, unsigned size)
         for (i = 0; i < size; i++)
             *(uint8_t *)(buffer + i) = input_getc();
 
+        if(lock_held_by_current_thread(&filesys_lock))
+            lock_release(&filesys_lock);  
         return size;
     }
 
     fde = process_get_fde(fd);
-    if (!fde)
+    if (!fde){
+        if(lock_held_by_current_thread(&filesys_lock))
+            lock_release(&filesys_lock);  
         return -1;
+    }
 
-    lock_acquire(&filesys_lock);
+   
     bytes_read = (int)file_read(fde->file, buffer, (off_t)size);
-    lock_release(&filesys_lock);
+    if(lock_held_by_current_thread(&filesys_lock))
+      lock_release(&filesys_lock);    
     return bytes_read;
 }
 
@@ -424,23 +449,31 @@ static int syscall_write(int fd, const void *buffer, unsigned size)
     struct file_descriptor_entry *fde;
     int bytes_written, i;
 
+    if(!lock_held_by_current_thread(&filesys_lock))
+        lock_acquire(&filesys_lock);
+
     for (i = 0; i < size; i++)
         check_vaddr(buffer + i);
-
+   
     if (fd == 1)
     {
-        putbuf((const char *)buffer, (size_t)size);
 
+        putbuf((const char *)buffer, (size_t)size);
+        if(lock_held_by_current_thread(&filesys_lock))
+            lock_release(&filesys_lock);
         return size;
     }
 
     fde = process_get_fde(fd);
-    if (!fde)
+    if (!fde){
+        if(lock_held_by_current_thread(&filesys_lock))
+            lock_release(&filesys_lock);
         return -1;
-
-    lock_acquire(&filesys_lock);
+    }
+    
     bytes_written = (int)file_write(fde->file, buffer, (off_t)size);
-    lock_release(&filesys_lock);
+    if(lock_held_by_current_thread(&filesys_lock))
+        lock_release(&filesys_lock);
 
     return bytes_written;
 }
@@ -448,28 +481,38 @@ static int syscall_write(int fd, const void *buffer, unsigned size)
 /* Handles seek() system call. */
 static void syscall_seek(int fd, unsigned position)
 {
+    if(!lock_held_by_current_thread(&filesys_lock))
+        lock_acquire(&filesys_lock);
     struct file_descriptor_entry *fde = process_get_fde(fd);
 
-    if (!fde)
+    if (!fde){
+        if(lock_held_by_current_thread(&filesys_lock))
+            lock_release(&filesys_lock);
         return;
-
-    lock_acquire(&filesys_lock);
+    }
+    
     file_seek(fde->file, (off_t)position);
-    lock_release(&filesys_lock);
+    if(lock_held_by_current_thread(&filesys_lock))
+        lock_release(&filesys_lock);
 }
 
 /* Handles tell() system call. */
 static unsigned syscall_tell(int fd)
 {
+    if(!lock_held_by_current_thread(&filesys_lock))
+        lock_acquire(&filesys_lock);
     struct file_descriptor_entry *fde = process_get_fde(fd);
     unsigned pos;
 
-    if (!fde)
+    if (!fde){
+        if(lock_held_by_current_thread(&filesys_lock))
+            lock_release(&filesys_lock);
         return -1;
+    }
 
-    lock_acquire(&filesys_lock);
     pos = (unsigned)file_tell(fde->file);
-    lock_release(&filesys_lock);
+    if(lock_held_by_current_thread(&filesys_lock))
+        lock_release(&filesys_lock);
 
     return pos;
 }
@@ -477,16 +520,21 @@ static unsigned syscall_tell(int fd)
 /* Handles close() system call. */
 void syscall_close(int fd)
 {
+    if(!lock_held_by_current_thread(&filesys_lock))
+        lock_acquire(&filesys_lock);
     struct file_descriptor_entry *fde = process_get_fde(fd);
 
-    if (!fde)
+    if (!fde){
+        if(lock_held_by_current_thread(&filesys_lock))
+           lock_release(&filesys_lock);
         return;
-
-    lock_acquire(&filesys_lock);
+    }
+    
     file_close(fde->file);
     list_remove(&fde->fdtelem);
     palloc_free_page(fde);
-    lock_release(&filesys_lock);
+    if(lock_held_by_current_thread(&filesys_lock))
+        lock_release(&filesys_lock);
 }
 
 static int syscall_mmap(int fd, void *addr){

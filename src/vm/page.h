@@ -5,7 +5,6 @@
 #include "threads/thread.h"
 #include "filesys/file.h"
 
-
 struct spte {
   int type;
   uint8_t* page_number;
@@ -17,6 +16,7 @@ struct spte {
   int zero_bytes;
   bool writable;
       bool is_pinned;
+
 
   struct list_elem spt_elem;
 };

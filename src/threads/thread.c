@@ -9,7 +9,6 @@
 #include "threads/intr-stubs.h"
 #include "threads/palloc.h"
 #include "threads/switch.h"
-#include "threads/synch.h"
 #include "threads/vaddr.h"
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -656,6 +655,7 @@ init_thread(struct thread *t, const char *name, int priority)
 
     list_init(&t->spt);
     list_init(&t->mmap_file_list);
+    lock_init(&t->spt_lock);
 #ifdef USERPROG
     t->pcb = NULL;
     list_init(&t->children);

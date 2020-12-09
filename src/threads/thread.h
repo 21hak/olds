@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -109,6 +110,7 @@ struct thread
     struct list mmap_file_list;
     struct frame_table_entry* clock_pointer;
     uint8_t *esp;
+      struct lock spt_lock;
     
 #ifdef USERPROG
     /* Shared between userprog/process.c and userprog/syscall.c. */
