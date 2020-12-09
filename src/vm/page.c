@@ -63,11 +63,11 @@ void clear_spt(){
 	struct thread* cur= thread_current();
 	struct list_elem* e;
 	lock_acquire(&cur->spt_lock);
-	for(e = list_begin(&cur->spt); e != list_end(&cur->spt); e = list_next(e)){
+	for(e = list_begin(&cur->spt); e != list_end(&cur->spt); e = e){
 		struct spte *target = list_entry (e, struct spte, spt_elem);
 		pagedir_clear_page(cur->pagedir, target->page_number);
 		deallocate_frame(target->frame_number);
-		list_remove(e);
+		e = list_remove(e);
 	}
 	lock_release(&cur->spt_lock);
 }

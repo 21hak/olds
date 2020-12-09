@@ -50,12 +50,15 @@ void deallocate_frame(uint8_t *kpage){
 		
 	struct list_elem* e;
 	lock_acquire(&frame_table_lock);	
-	for(e = list_begin(&frame_table); e != list_end(&frame_table); e = list_next(e)){
+	for(e = list_begin(&frame_table); e != list_end(&frame_table); e = e){
 		struct frame_table_entry *target = list_entry (e, struct frame_table_entry, frame_elem);
 		if(target->frame_number == kpage){
-			list_remove(e);
+			e = list_remove(e);
 			palloc_free_page(kpage);
 			break;		
+		}
+		else {
+			e = list_next(e);
 		}
 	}
 	lock_release(&frame_table_lock);
