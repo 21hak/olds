@@ -194,6 +194,7 @@ page_fault(struct intr_frame *f)
           {
               if((int)esp % PGSIZE==0)
                 ptr = esp - 1;
+              lock_acquire(&thread_current()->spt_lock);
               success = install_page(pg_round_down(ptr), frame->frame_number, true);
               if (success){
                   struct spte* page = malloc(sizeof(struct spte));
@@ -219,6 +220,7 @@ page_fault(struct intr_frame *f)
               }
               else
                   deallocate_frame(frame->frame_number);
+              lock_release(&thread_current()->spt_lock);
           }
         }
       }
@@ -246,6 +248,7 @@ page_fault(struct intr_frame *f)
           }
 
           if(is_valid){
+            lock_acquire(&thread_current()->spt_lock);
             if(!install_page(page->page_number, frame->frame_number, page->writable)){
               is_valid = false;
             }
@@ -254,10 +257,11 @@ page_fault(struct intr_frame *f)
               page->frame_number = frame->frame_number;
               lock_acquire(&frame_table_lock); 
                list_push_back(&frame_table, &frame->frame_elem);
-            lock_release(&frame_table_lock);
+              lock_release(&frame_table_lock);
               frame->is_pinned=0;
 
             }
+            lock_release(&thread_current()->spt_lock);
           }
           else{
             deallocate_frame(frame->frame_number);
@@ -273,6 +277,7 @@ page_fault(struct intr_frame *f)
             is_valid = true;
           }
           if(is_valid){
+            lock_acquire(&thread_current()->spt_lock);
             if(!install_page(total_page->page_number, frame->frame_number, total_page->writable)){
               deallocate_frame(frame->frame_number);
               is_valid = false;
@@ -286,6 +291,7 @@ page_fault(struct intr_frame *f)
               lock_release(&frame_table_lock);
 
             }
+            lock_release(&thread_current()->spt_lock);
           }
       }
 

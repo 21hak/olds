@@ -589,12 +589,15 @@ setup_stack(void **esp)
     frame->is_pinned=1;
     if (frame != NULL)
     {
+        lock_acquire(&thread_current()->spt_lock);
         success = install_page(((uint8_t *)PHYS_BASE) - PGSIZE, frame->frame_number, true);
         if (success){
             struct spte* page = malloc(sizeof(struct spte));
             frame->mapped_page = page;
-            if(page==NULL)
+            if(page==NULL){
+                lock_release(&thread_current()->spt_lock);
                 return false;
+            }
             page->thread_id = thread_tid();
             page->offset = 0;
             page->read_bytes = 0;
@@ -610,6 +613,7 @@ setup_stack(void **esp)
         }
         else
             deallocate_frame(frame->frame_number);
+        lock_release(&thread_current()->spt_lock);
     }
     return success;
 }
