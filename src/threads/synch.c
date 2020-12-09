@@ -255,10 +255,10 @@ void lock_release(struct lock *lock)
 
     if (!thread_mlfqs)
         for (e = list_begin(waiters); e != list_end(waiters); e = list_next(e))
-            for (de = list_begin(donators); de != list_end(donators); de = list_next(de))
+            for (de = list_begin(donators); de != list_end(donators); de = de)
                 if (&list_entry(e, struct thread, elem)->doelem == de)
                 {
-                    list_remove(de);
+                    de = list_remove(de);
                     break;
                 }
 

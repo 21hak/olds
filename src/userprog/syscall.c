@@ -612,7 +612,7 @@ static int syscall_mmap(int fd, void *addr){
 void syscall_munmap(mapid_t mapid){
     struct list_elem* e;
     struct thread* cur = thread_current();
-    for(e = list_begin(&cur->mmap_file_list); e != list_end(&cur->mmap_file_list); e = list_next(e)){
+    for(e = list_begin(&cur->mmap_file_list); e != list_end(&cur->mmap_file_list); e = e){
         struct mmap_file* mmap_file = list_entry(e, struct mmap_file, mmap_elem);
         if(mmap_file->map_id == mapid){
             struct spte* cur_stpe = mmap_file->spte;
@@ -635,7 +635,7 @@ void syscall_munmap(mapid_t mapid){
                 cur_stpe = next_stpe;
                 // cur_stpe = list_remove(&cur_stpe->spt_elem);
             }
-            list_remove(&mmap_file->mmap_elem);
+            e = list_remove(&mmap_file->mmap_elem);
             // free(mmap_file);
         }
     }

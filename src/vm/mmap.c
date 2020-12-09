@@ -40,8 +40,9 @@ int add_mmap_file(struct spte* spte){
 void clear_mmap_file_list(){
 	struct thread* cur = thread_current();
 	struct list_elem* e;
-	for(e = list_begin(&cur->mmap_file_list); e != list_end(&cur->mmap_file_list); e = list_next(e)){
+	for(e = list_begin(&cur->mmap_file_list); e != list_end(&cur->mmap_file_list);){
 		struct mmap_file *target = list_entry (e, struct mmap_file, mmap_elem);
+		 e = list_next(e);
 		syscall_munmap(target->map_id);
 	}
 }
