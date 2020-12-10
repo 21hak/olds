@@ -165,79 +165,20 @@ page_fault(struct intr_frame *f)
     // }
     // struct spte* page2 = find_page_from_frame(fault_addr);
     if (is_user_vaddr(fault_addr)&&fault_addr>0x08048000 && not_present){
-      if(lock_held_by_current_thread(&frame_table_lock))
-        lock_release(&frame_table_lock);
+    //   if(lock_held_by_current_thread(&frame_table_lock))
+    //     lock_release(&frame_table_lock);
       struct spte* page = find_page(fault_addr);
-      struct spte* total_page = find_page_from_spts(fault_addr);
-            
 
-      if (fault_addr > (uint8_t*)PHYS_BASE - 8 * 1024 * 1024){
-        // stack growth
-        uint8_t * esp;
-        if(user){
-          esp = f->esp;
-        }
-        else {
-          esp = thread_current()->esp;
-        }
-        uint8_t *ptr = esp;
-        
-
-        if((esp - 32) <= (uint8_t *)fault_addr){
-          bool success = false;
-          struct frame_table_entry * frame;
-
-          frame = allocate_frame(PAL_USER | PAL_ZERO);
-          frame->is_pinned = 1;
-
-          if (frame != NULL)
-          {
-              if((int)esp % PGSIZE==0)
-                ptr = esp - 1;
-              lock_acquire(&thread_current()->spt_lock);
-              success = install_page(pg_round_down(ptr), frame->frame_number, true);
-              if (success){
-                  struct spte* page = malloc(sizeof(struct spte));
-                  frame->mapped_page = page;
-
-                  if(page==NULL){
-                  }
-                  else{
-                     page->thread_id = thread_tid();
-                    page->offset = 0;
-                    page->read_bytes = 0;
-                    page->zero_bytes = 0;
-                    page->writable = true;
-                    page->page_number = pg_round_down(ptr);
-                    page->frame_number = frame->frame_number;
-                    list_push_back(&thread_current()->spt, &page->spt_elem);
-                    is_valid=true;
-                     lock_acquire(&frame_table_lock); 
-                    list_push_back(&frame_table, &frame->frame_elem);
-                    lock_release(&frame_table_lock);
-                    frame->is_pinned=0;
-                  }
-              }
-              else
-                  deallocate_frame(frame->frame_number);
-              lock_release(&thread_current()->spt_lock);
-          }
-        }
-      }
-      else if (page != NULL && page->related_file != NULL){
-        // normal load
-        struct frame_table_entry* frame = allocate_frame(PAL_USER);
-        frame->is_pinned=1;
+      if(page){
+        if(page->related_file!=NULL){
+          struct frame_table_entry* frame = allocate_frame(PAL_USER);
           if(frame == NULL){
             is_valid = false;
+          }else {
+            frame->is_pinned=1;
           }
           file_seek(page->related_file, page->offset);
-          // if(page->read_bytes==0){
-          //   printf("readbytes\n");
-          //   is_valid = false;
-          // }
           if(file_read(page->related_file, frame->frame_number, page->read_bytes) != (int)page->read_bytes){
-            // deallocate_frame(frame->frame_number);
             is_valid = false;
 
           } 
@@ -253,24 +194,23 @@ page_fault(struct intr_frame *f)
               is_valid = false;
             }
             else {
+              lock_acquire(&frame_table_lock);  
               frame->mapped_page = page;
               page->frame_number = frame->frame_number;
-              lock_acquire(&frame_table_lock); 
-               list_push_back(&frame_table, &frame->frame_elem);
+              list_push_back(&frame_table, &frame->frame_elem);
               lock_release(&frame_table_lock);
               frame->is_pinned=0;
-
+              lock_release(&thread_current()->spt_lock);
             }
-            lock_release(&thread_current()->spt_lock);
-          }
+          } 
           else{
             deallocate_frame(frame->frame_number);
           }
-      }
-      else if (total_page != NULL && total_page->related_file == NULL){
-        // swap
-        struct frame_table_entry* frame = allocate_frame(PAL_USER);
-        frame->is_pinned=1;
+
+        }
+        else {
+          // swap
+          struct frame_table_entry* frame = allocate_frame(PAL_USER);
           if(frame == NULL){
             is_valid = false;
           } else{
@@ -278,140 +218,74 @@ page_fault(struct intr_frame *f)
           }
           if(is_valid){
             lock_acquire(&thread_current()->spt_lock);
-            if(!install_page(total_page->page_number, frame->frame_number, total_page->writable)){
+            if(!install_page(page->page_number, frame->frame_number, page->writable)){
               deallocate_frame(frame->frame_number);
               is_valid = false;
             } else {
-              
-              total_page->frame_number = frame->frame_number;
-              frame->mapped_page = total_page;
-              swap_read(total_page->page_number, total_page->frame_number);
-              lock_acquire(&frame_table_lock); 
+              lock_acquire(&frame_table_lock);  
+              page->frame_number = frame->frame_number;
+              frame->mapped_page = page;
+              swap_read(page->page_number, page->frame_number);
               list_push_back(&frame_table, &frame->frame_elem);
               lock_release(&frame_table_lock);
-
             }
             lock_release(&thread_current()->spt_lock);
           }
-      }
+        }
+      } 
+      else {
+        // stack growth
 
-      // if(page){
-      //   if(page->related_file!=NULL){
-      //     struct frame_table_entry* frame = allocate_frame(PAL_USER);
-      //     if(frame == NULL){
-      //       is_valid = false;
-      //     }
-      //     file_seek(page->related_file, page->offset);
-      //     // if(page->read_bytes==0){
-      //     //   printf("readbytes\n");
-      //     //   is_valid = false;
-      //     // }
-      //     if(file_read(page->related_file, frame->frame_number, page->read_bytes) != (int)page->read_bytes){
-      //       // deallocate_frame(frame->frame_number);
-      //       is_valid = false;
-
-      //     } 
-      //     else {
-
-      //       memset(frame->frame_number + page->read_bytes, 0, page->zero_bytes);
-      //       is_valid = true;
-      //     }
-
-      //     if(is_valid){
-      //       if(!install_page(page->page_number, frame->frame_number, page->writable)){
-      //         is_valid = false;
-      //       } else {
-      //         if(!lock_held_by_current_thread(&frame_table_lock)){
-      //           lock_acquire(&frame_table_lock);  
-      //         }
-      //         frame->mapped_page = page;
-      //         page->frame_number = frame->frame_number;
-      //         if(lock_held_by_current_thread(&frame_table_lock))
-      //           lock_release(&frame_table_lock);
-      //       }
-      //     } else{
-      //       deallocate_frame(frame->frame_number);
-      //     }
-      //   }
-      //   else {
-      //     // swap
-      //     struct frame_table_entry* frame = allocate_frame(PAL_USER);
-      //     if(frame == NULL){
-      //       is_valid = false;
-      //     } else{
-      //       is_valid = true;
-      //     }
-      //     if(is_valid){
-      //       if(!install_page(page->page_number, frame->frame_number, page->writable)){
-      //         deallocate_frame(frame->frame_number);
-      //         is_valid = false;
-      //       } else {
-      //         if(!lock_held_by_current_thread(&frame_table_lock)){
-      //           lock_acquire(&frame_table_lock);  
-      //         }
-      //         page->frame_number = frame->frame_number;
-      //         frame->mapped_page = page;
-      //         if(lock_held_by_current_thread(&frame_table_lock)){
-      //           lock_release(&frame_table_lock);
-      //         }
-      //         swap_read(page->page_number, page->frame_number);
-      //       }
-      //     }
-      //   }
-
-      // } 
-      // else {
-      //   // stack growth
-
-      //   if(!lock_held_by_current_thread(&frame_table_lock)){
-      //     lock_acquire(&frame_table_lock);  
-      //   }
-      //   uint8_t * esp;
-      //   if(user){
-      //     esp = f->esp;
-      //   }
-      //   else {
-      //     esp = thread_current()->esp;
-      //   }
-      //   uint8_t *ptr = esp;
+        uint8_t * esp;
+        if(user){
+          esp = f->esp;
+        }
+        else {
+          esp = thread_current()->esp;
+        }
+        uint8_t *ptr = esp;
         
 
-      //   if((esp - 32) <= (uint8_t *)fault_addr){
-      //     bool success = false;
-      //     struct frame_table_entry * frame;
+        if((esp - 32) <= (uint8_t *)fault_addr){
+          bool success = false;
+          struct frame_table_entry * frame;
 
 
-      //     frame = allocate_frame(PAL_USER | PAL_ZERO);
-      //     if (frame != NULL)
-      //     {
-      //         if((int)esp % PGSIZE==0)
-      //           ptr = esp - 1;
-      //         success = install_page(pg_round_down(ptr), frame->frame_number, true);
-      //         if (success){
-      //             struct spte* page = malloc(sizeof(struct spte));
-      //             frame->mapped_page = page;
+          frame = allocate_frame(PAL_USER | PAL_ZERO);
+          if (frame != NULL)
+          {
+              frame->is_pinned = 1;
+              if((int)esp % PGSIZE==0)
+                ptr = esp - 1;
+              lock_acquire(&thread_current()->spt_lock);
+              success = install_page(pg_round_down(ptr), frame->frame_number, true);
+              if (success){
+                  struct spte* page = malloc(sizeof(struct spte));
+                  frame->mapped_page = page;
 
-      //             if(page==NULL){
-      //               is_valid = false;
-      //             }
-      //             page->thread_id = thread_tid();
-      //             page->offset = 0;
-      //             page->read_bytes = 0;
-      //             page->zero_bytes = 0;
-      //             page->writable = true;
-      //             page->page_number = pg_round_down(ptr);
-      //             page->frame_number = frame->frame_number;
-      //             list_push_back(&thread_current()->spt, &page->spt_elem);
-      //             is_valid=true;
-      //         }
-      //         else
-      //             deallocate_frame(frame->frame_number);
-      //     }
-      //   }
-      //   if(lock_held_by_current_thread(&frame_table_lock)){
-      //       lock_release(&frame_table_lock);
-      //   }
-      // }
+                  if(page==NULL){
+                    is_valid = false;
+                  }
+                  page->thread_id = thread_tid();
+                  page->offset = 0;
+                  page->read_bytes = 0;
+                  page->zero_bytes = 0;
+                  page->writable = true;
+                  page->page_number = pg_round_down(ptr);
+                  page->frame_number = frame->frame_number;
+                  list_push_back(&thread_current()->spt, &page->spt_elem);
+                  is_valid=true;
+                  lock_acquire(&frame_table_lock); 
+                  list_push_back(&frame_table, &frame->frame_elem);
+                  lock_release(&frame_table_lock);
+                  frame->is_pinned=0;
+              }
+              else
+                  deallocate_frame(frame->frame_number);
+              lock_release(&thread_current()->spt_lock);
+          }
+        }
+      }
       
     }
 

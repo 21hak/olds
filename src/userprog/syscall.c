@@ -301,6 +301,7 @@ static bool syscall_create(const char *file, unsigned initial_size)
 {
     bool success;
     int i;
+    timer_sleep(50);
 
     if(!lock_held_by_current_thread(&filesys_lock))
         lock_acquire(&filesys_lock);
@@ -338,7 +339,8 @@ static int syscall_open(const char *file)
     struct file_descriptor_entry *fde;
     struct file *new_file;
     int i;
-    
+        timer_sleep(50);
+
     if(!lock_held_by_current_thread(&filesys_lock))
         lock_acquire(&filesys_lock);
 
@@ -448,7 +450,6 @@ static int syscall_write(int fd, const void *buffer, unsigned size)
 {
     struct file_descriptor_entry *fde;
     int bytes_written, i;
-
     if(!lock_held_by_current_thread(&filesys_lock))
         lock_acquire(&filesys_lock);
 
