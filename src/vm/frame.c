@@ -120,6 +120,11 @@ struct frame_table_entry* select_victim(){
 			lock_release(&frame_table_lock);
 		return list_entry(list_prev(&clock_pointer->frame_elem), struct frame_table_entry, frame_elem);
 	}
+<<<<<<< HEAD
+=======
+	// if(lock_held_by_current_thread(&frame_table_lock))
+	//	lock_release(&frame_table_lock);
+>>>>>>> finalfinal
 }
 
 
