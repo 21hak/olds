@@ -368,6 +368,7 @@ page_fault(struct intr_frame *f)
           {
               if((int)esp % PGSIZE==0)
                 ptr = esp - 1;
+              // ptr = fault_addr;
               success = install_page(pg_round_down(ptr), frame->frame_number, true);
               if (success){
                   struct spte* page = malloc(sizeof(struct spte));
@@ -400,13 +401,13 @@ page_fault(struct intr_frame *f)
     if(!is_valid){
       // printf("aa %p %p\n", fault_addr, page2);
       // printf("bb %p \n",find_page_from_spts(fault_addr));
-      // syscall_exit(-1);
-      printf("Page fault at %p: %s error %s page in %s context.\n",
+      syscall_exit(-1);
+      /*printf("Page fault at %p: %s error %s page in %s context.\n",
            fault_addr,
            not_present ? "not present" : "rights violation",
            write ? "writing" : "reading",
            user ? "user" : "kernel");
-      kill(f);  
+      kill(f);*/  
     }
     
 }
