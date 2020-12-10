@@ -54,8 +54,7 @@ void clear_spt(){
 	struct list_elem* e;
 	for(e = list_begin(&cur->spt); e != list_end(&cur->spt); e = list_next(e)){
 		struct spte *target = list_entry (e, struct spte, spt_elem);
-/*		printf("targ %p\n", target->page_number);
-*/		pagedir_clear_page(cur->pagedir, target->page_number);
+		pagedir_clear_page(cur->pagedir, target->page_number);
 		deallocate_frame(target->frame_number);
 		list_remove(e);
 	}

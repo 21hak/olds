@@ -300,10 +300,8 @@ static bool syscall_create(const char *file, unsigned initial_size)
     check_vaddr(file);
     for (i = 0; *(file + i); i++)
         check_vaddr(file + i + 1);
-    timer_sleep(50);
-    // if(!lock_held_by_current_thread(&filesys_lock))
+    timer_sleep(100);
     lock_acquire(&filesys_lock);
-    // printf("tid %p\n", thread_tid());
     success = filesys_create(file, (off_t)initial_size);
     lock_release(&filesys_lock);
 
@@ -342,7 +340,7 @@ static int syscall_open(const char *file)
     if (!fde)
         return -1;
         lock_acquire(&filesys_lock);
-    timer_sleep(50);
+    // timer_sleep(50);
 
     new_file = filesys_open(file);
     if (!new_file)
@@ -581,14 +579,11 @@ void syscall_munmap(mapid_t mapid){
                 }
                 list_remove(&cur_stpe->spt_elem);
                 pagedir_clear_page(cur->pagedir, cur_stpe->page_number);
-                // printf("offset: %d i: %d frame: %p\n ",cur_stpe->offset, i, cur_stpe->frame_number);
                 deallocate_frame(cur_stpe->frame_number);
                 free(cur_stpe);
                 cur_stpe = next_stpe;
-                // cur_stpe = list_remove(&cur_stpe->spt_elem);
             }
             list_remove(&mmap_file->mmap_elem);
-            // free(mmap_file);
         }
     }
 }

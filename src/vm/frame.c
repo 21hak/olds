@@ -74,8 +74,7 @@ struct frame_table_entry* select_victim(){
 	struct thread* target;
 	struct frame_table_entry* frame;
 	struct list_elem* e;
-/*	return list_entry(list_begin(&frame_table), struct frame_table_entry, frame_elem);
-*/	if(!lock_held_by_current_thread(&frame_table_lock)){
+	if(!lock_held_by_current_thread(&frame_table_lock)){
 		lock_acquire(&frame_table_lock);	
 	}
 	if(clock_pointer==NULL){
@@ -83,11 +82,8 @@ struct frame_table_entry* select_victim(){
 	}
 	target = find_thread(clock_pointer->mapped_page->thread_id);
 
-	while(pagedir_is_accessed(target->pagedir, clock_pointer->mapped_page->page_number)
-	 // && (clock_pointer->accessed_bit == 1)
-	 ){
+	while(pagedir_is_accessed(target->pagedir, clock_pointer->mapped_page->page_number)){
 		pagedir_set_accessed(target->pagedir, clock_pointer->mapped_page->page_number, false);
-		// clock_pointer->accessed_bit = 0;
 		if(clock_pointer == list_entry(list_rbegin(&frame_table), struct frame_table_entry, frame_elem)){
 			clock_pointer = list_entry(list_begin(&frame_table), struct frame_table_entry, frame_elem);
 		}
@@ -108,8 +104,6 @@ struct frame_table_entry* select_victim(){
 			lock_release(&frame_table_lock);
 		return list_entry(list_prev(&clock_pointer->frame_elem), struct frame_table_entry, frame_elem);
 	}
-	// if(lock_held_by_current_thread(&frame_table_lock))
-	//	lock_release(&frame_table_lock);
 }
 
 
