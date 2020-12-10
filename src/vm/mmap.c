@@ -3,6 +3,7 @@
 #include "threads/malloc.h"
 #include "threads/vaddr.h"
 #include "userprog/syscall.h"
+#include "userprog/pagedir.h"
 
 int add_mmap_file(struct spte* spte){
 	int read_bytes = file_length(spte->related_file);
@@ -35,6 +36,19 @@ int add_mmap_file(struct spte* spte){
 	mmap_file->map_id = i;
 	list_push_back(&thread_current()->mmap_file_list, &mmap_file->mmap_elem);
 	return i;
+}
+
+struct mmap_file* find_mmap_file(int mapid){
+    struct list_elem* e;
+    struct thread* cur = thread_current();
+
+	for(e = list_begin(&cur->mmap_file_list); e != list_end(&cur->mmap_file_list); e = e){
+        struct mmap_file* mmap_file = list_entry(e, struct mmap_file, mmap_elem);
+        if(mmap_file->map_id == mapid){
+            return mmap_file;
+        }
+    }
+    return NULL;
 } 
 
 void clear_mmap_file_list(){
@@ -45,5 +59,3 @@ void clear_mmap_file_list(){
 		syscall_munmap(target->map_id);
 	}
 }
-
-// syscall_munmap(mapid_t mapid)

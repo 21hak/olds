@@ -36,7 +36,7 @@ void close(int fd);
 
 /* Project 3 and optionally project 4. */
 mapid_t mmap(int fd, void *addr);
-void munmap(mapid_t);
+void syscall_munmap(mapid_t);
 
 /* Project 4 only. */
 bool chdir(const char *dir);

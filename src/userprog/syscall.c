@@ -296,7 +296,12 @@ static bool syscall_create(const char *file, unsigned initial_size)
 {
     bool success;
     int i;
+<<<<<<< Updated upstream
 
+=======
+    if(!lock_held_by_current_thread(&filesys_lock))
+        lock_acquire(&filesys_lock);
+>>>>>>> Stashed changes
     check_vaddr(file);
     for (i = 0; *(file + i); i++)
         check_vaddr(file + i + 1);
@@ -561,34 +566,28 @@ static int syscall_mmap(int fd, void *addr){
     return mapid;
 } 
 
-void syscall_munmap(mapid_t mapid){
-    struct list_elem* e;
-    struct thread* cur = thread_current();
-    for(e = list_begin(&cur->mmap_file_list); e != list_end(&cur->mmap_file_list); e = list_next(e)){
-        struct mmap_file* mmap_file = list_entry(e, struct mmap_file, mmap_elem);
-        if(mmap_file->map_id == mapid){
-            struct spte* cur_stpe = mmap_file->spte;
-            struct spte* next_stpe;
-            for(int i=0; i < mmap_file->page_num; i++){
-                file_seek(cur_stpe->related_file, cur_stpe->offset);
-                if(&cur_stpe->spt_elem != list_tail(&cur->spt)){
-                    next_stpe = list_entry(list_next(&cur_stpe->spt_elem), struct spte, spt_elem);
-                }
 
-                if(pagedir_is_dirty(cur->pagedir, cur_stpe->page_number)){
-                    file_write(cur_stpe->related_file, cur_stpe->frame_number, cur_stpe->read_bytes);
-                // dirty        
-                }
-                list_remove(&cur_stpe->spt_elem);
-                pagedir_clear_page(cur->pagedir, cur_stpe->page_number);
-                // printf("offset: %d i: %d frame: %p\n ",cur_stpe->offset, i, cur_stpe->frame_number);
-                deallocate_frame(cur_stpe->frame_number);
-                free(cur_stpe);
-                cur_stpe = next_stpe;
-                // cur_stpe = list_remove(&cur_stpe->spt_elem);
-            }
-            list_remove(&mmap_file->mmap_elem);
-            // free(mmap_file);
+void syscall_munmap(mapid_t mapid){
+    struct mmap_file* mmap_file = find_mmap_file(mapid);
+    if(mmap_file==NULL)
+        return;
+    struct spte* cur_stpe = mmap_file->spte;
+    struct spte* next_stpe;
+    struct thread* cur = thread_current();
+    for(int i=0; i < mmap_file->page_num; i++){
+        file_seek(cur_stpe->related_file, cur_stpe->offset);
+        if(&cur_stpe->spt_elem != list_tail(&cur->spt)){
+            next_stpe = list_entry(list_next(&cur_stpe->spt_elem), struct spte, spt_elem);
         }
+
+        if(pagedir_is_dirty(cur->pagedir, cur_stpe->page_number)){
+            file_write(cur_stpe->related_file, cur_stpe->frame_number, cur_stpe->read_bytes);
+        }
+        list_remove(&cur_stpe->spt_elem);
+        pagedir_clear_page(cur->pagedir, cur_stpe->page_number);
+        deallocate_frame(cur_stpe->frame_number);
+        free(cur_stpe);
+        cur_stpe = next_stpe;
     }
+    list_remove(&mmap_file->mmap_elem);
 }

@@ -14,5 +14,5 @@ struct mmap_file {
 };
 
 int add_mmap_file(struct spte* spte);
-
+struct mmap_file* find_mmap_file(int mapid);
 #endif /* vm/mmap.h */
