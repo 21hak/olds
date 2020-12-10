@@ -110,13 +110,16 @@ struct frame_table_entry* select_victim(){
 	}
 	if(&clock_pointer->frame_elem == list_rbegin(&frame_table)){
 		clock_pointer = list_entry(list_begin(&frame_table), struct frame_table_entry, frame_elem);
+		if(lock_held_by_current_thread(&frame_table_lock))
+			lock_release(&frame_table_lock);
 		return list_entry(list_rbegin(&frame_table), struct frame_table_entry, frame_elem);
 	}
 	else {
 		clock_pointer = list_entry(list_next(&clock_pointer->frame_elem), struct frame_table_entry, frame_elem);
+		if(lock_held_by_current_thread(&frame_table_lock))
+			lock_release(&frame_table_lock);
 		return list_entry(list_prev(&clock_pointer->frame_elem), struct frame_table_entry, frame_elem);
 	}
-	
 }
 
 
